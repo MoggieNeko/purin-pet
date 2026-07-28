@@ -160,10 +160,14 @@ const POSE_SCALE: Record<CinematicPose, number> = {
 const IDLE_POSES: IdlePose[] = [
   "breathe",
   "curious",
-  "selfplay",
+  "breathe",
   "sway",
-  "sploot",
   "sniff",
+  "breathe",
+  "selfplay",
+  "breathe",
+  "sploot",
+  "breathe",
   "nap",
 ];
 
@@ -233,10 +237,10 @@ function motionFor(
   const fast = Math.sin(time * 0.008);
   const motion: DrawMotion = {
     x: 0,
-    y: slow * 0.004,
-    rotation: slow * 0.006,
-    scaleX: 1 + slow * 0.004,
-    scaleY: 1 - slow * 0.004,
+    y: slow * 0.0015,
+    rotation: slow * 0.0025,
+    scaleX: 1 + slow * 0.0025,
+    scaleY: 1 - slow * 0.002,
   };
 
   if (action === "feed") {
@@ -248,10 +252,10 @@ function motionFor(
   if (action === "play") {
     return {
       ...motion,
-      y: -Math.abs(Math.sin(time * 0.0048)) * 0.055,
-      rotation: medium * 0.025,
-      scaleX: 1 + Math.abs(fast) * 0.012,
-      scaleY: 1 - Math.abs(fast) * 0.012,
+      y: -Math.abs(Math.sin(time * 0.0048)) * 0.028,
+      rotation: medium * 0.016,
+      scaleX: 1 + Math.abs(fast) * 0.008,
+      scaleY: 1 - Math.abs(fast) * 0.008,
     };
   }
   if (action === "sleep") {
@@ -260,18 +264,27 @@ function motionFor(
   if (action) {
     return {
       ...motion,
-      y: -Math.abs(Math.sin(time * 0.0044)) * 0.035,
-      rotation: medium * 0.028,
+      y: -Math.abs(Math.sin(time * 0.0044)) * 0.018,
+      rotation: medium * 0.016,
     };
   }
 
-  if (petted || idlePose === "delighted" || condition === "radiant") {
+  if (petted || idlePose === "delighted") {
     return {
       ...motion,
-      y: -Math.abs(Math.sin(time * 0.0055)) * 0.027,
-      rotation: medium * 0.018,
-      scaleX: 1 + Math.abs(fast) * 0.01,
-      scaleY: 1 - Math.abs(fast) * 0.008,
+      y: -Math.abs(Math.sin(time * 0.0055)) * 0.015,
+      rotation: medium * 0.012,
+      scaleX: 1 + Math.abs(fast) * 0.007,
+      scaleY: 1 - Math.abs(fast) * 0.006,
+    };
+  }
+  if (condition === "radiant") {
+    return {
+      ...motion,
+      y: slow * 0.0018,
+      rotation: medium * 0.0035,
+      scaleX: 1 + slow * 0.003,
+      scaleY: 1 - slow * 0.0025,
     };
   }
   if (condition === "hungry") {
@@ -296,6 +309,69 @@ function motionFor(
     return { ...motion, x: medium * 0.007, rotation: medium * 0.016 };
   }
   return motion;
+}
+
+function drawSoftMesh(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  meta: SpriteMeta | PoseMeta,
+  drawSize: number,
+  time: number,
+  animated: boolean,
+) {
+  const sourceWidth = image.naturalWidth / 2;
+  const sourceHeight = image.naturalHeight / 2;
+  const slices = 30;
+  const sourceSlice = sourceHeight / slices;
+  const destinationSlice = drawSize / slices;
+  const breathe = animated ? Math.sin(time * 0.00165) : 0;
+  const settle = animated ? Math.sin(time * 0.00082 + 0.7) : 0;
+
+  for (let index = 0; index < slices; index += 1) {
+    const middle = (index + 0.5) / slices;
+    const sourceTop = index * sourceSlice;
+    const sourceOverlapTop = index === 0 ? 0 : 0.65;
+    const sourceOverlapBottom = index === slices - 1 ? 0 : 0.65;
+    const sourceY =
+      meta.row * sourceHeight + sourceTop - sourceOverlapTop;
+    const sourceDrawHeight =
+      sourceSlice + sourceOverlapTop + sourceOverlapBottom;
+
+    const headInfluence = Math.exp(-Math.pow((middle - 0.34) / 0.22, 2));
+    const chestInfluence = Math.exp(-Math.pow((middle - 0.62) / 0.25, 2));
+    const footInfluence = Math.exp(-Math.pow((middle - 0.82) / 0.13, 2));
+    const localWidth =
+      1 +
+      breathe * 0.006 * chestInfluence -
+      breathe * 0.0025 * headInfluence;
+    const localShift =
+      drawSize *
+      (settle * 0.0028 * headInfluence -
+        settle * 0.0012 * footInfluence);
+    const localLift =
+      drawSize * breathe * 0.0018 * (headInfluence - footInfluence);
+    const destinationWidth = drawSize * localWidth;
+    const destinationY =
+      -drawSize / 2 +
+      index * destinationSlice -
+      (index === 0 ? 0 : 0.7) +
+      localLift;
+    const destinationHeight =
+      destinationSlice +
+      (index === 0 || index === slices - 1 ? 0.7 : 1.4);
+
+    context.drawImage(
+      image,
+      meta.column * sourceWidth,
+      sourceY,
+      sourceWidth,
+      sourceDrawHeight,
+      -destinationWidth / 2 + localShift,
+      destinationY,
+      destinationWidth,
+      destinationHeight,
+    );
+  }
 }
 
 function ConditionEffects({ condition }: { condition: PetCondition }) {
@@ -371,7 +447,7 @@ export function PurinMascot({
     const timer = window.setInterval(() => {
       poseIndex = (poseIndex + 1) % IDLE_POSES.length;
       setIdlePose(IDLE_POSES[poseIndex]);
-    }, 5600);
+    }, 11_000);
     return () => window.clearInterval(timer);
   }, [action, interactive]);
 
@@ -395,6 +471,16 @@ export function PurinMascot({
     let width = 0;
     let height = 0;
     let pixelRatio = 1;
+    let transitionStarted = 0;
+    const previousFrame = document.createElement("canvas");
+    previousFrame.width = canvas.width;
+    previousFrame.height = canvas.height;
+    const previousContext = previousFrame.getContext("2d");
+    const hasPreviousFrame =
+      canvas.width > 1 && canvas.height > 1 && Boolean(previousContext);
+    if (hasPreviousFrame) {
+      previousContext?.drawImage(canvas, 0, 0);
+    }
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -412,15 +498,19 @@ export function PurinMascot({
         cinematicPose && cinematicImage ? cinematicImage : baseImage;
       const activeMeta =
         cinematicPose && poseMeta ? poseMeta : sprite;
-      const sourceWidth = activeImage.naturalWidth / 2;
-      const sourceHeight = activeImage.naturalHeight / 2;
       const shape = STAGE_SHAPE[effectiveStage];
       const motion = motionFor(time, action, condition, idlePose, petted);
       const poseScale = cinematicPose ? POSE_SCALE[cinematicPose] : 1;
       const drawSize =
         Math.min(width, height) * 1.075 * shape.overall * poseScale;
+      const transitionProgress =
+        !shouldAnimate || !hasPreviousFrame
+          ? 1
+          : Math.min(1, Math.max(0, (time - transitionStarted) / 520));
 
       context.save();
+      context.globalAlpha =
+        (condition === "critical" ? 0.9 : 1) * transitionProgress;
       context.translate(
         width * (0.5 + motion.x),
         height * (0.5 + shape.y + motion.y),
@@ -430,22 +520,33 @@ export function PurinMascot({
         shape.width * motion.scaleX,
         shape.height * motion.scaleY,
       );
-      context.shadowColor = "rgba(72, 43, 25, 0.18)";
-      context.shadowBlur = Math.max(3, width * 0.025);
-      context.shadowOffsetY = Math.max(2, height * 0.018);
-      context.globalAlpha = condition === "critical" ? 0.9 : 1;
-      context.drawImage(
+      drawSoftMesh(
+        context,
         activeImage,
-        activeMeta.column * sourceWidth,
-        activeMeta.row * sourceHeight,
-        sourceWidth,
-        sourceHeight,
-        -drawSize / 2,
-        -drawSize / 2,
+        activeMeta,
         drawSize,
-        drawSize,
+        time,
+        shouldAnimate,
       );
       context.restore();
+
+      if (hasPreviousFrame && transitionProgress < 1) {
+        context.save();
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.globalAlpha = 1 - transitionProgress;
+        context.drawImage(
+          previousFrame,
+          0,
+          0,
+          previousFrame.width,
+          previousFrame.height,
+          0,
+          0,
+          width,
+          height,
+        );
+        context.restore();
+      }
     };
 
     const resize = () => {
@@ -482,6 +583,7 @@ export function PurinMascot({
         if (cancelled) return;
         baseImage = loadedBase;
         cinematicImage = loadedCinematic;
+        transitionStarted = performance.now();
         resize();
         if (shouldAnimate) {
           animationFrame = window.requestAnimationFrame(loop);
@@ -571,7 +673,6 @@ export function PurinMascot({
             <i className="age-glasses" />
             <i className="age-muzzle" />
             <i className="age-cane" />
-            <i className="age-cheek" />
           </span>
           <span className="care-action-fx" aria-hidden="true">
             <i /><i /><i /><i />

@@ -112,7 +112,7 @@ function makeMiniGameItem(id: number, firstWave = false): MiniGameItem {
     id,
     kind,
     x: 9 + Math.random() * 82,
-    y: firstWave ? -12 - Math.random() * 46 : -14,
+    y: firstWave ? 16 + Math.random() * 22 : -8,
     speed: 0.82 + Math.random() * 0.58,
     spin: -16 + Math.random() * 32,
   };
@@ -511,6 +511,14 @@ export function PurinPet() {
       weekday: "short",
     }).format(new Date(year, month - 1, day));
   }, [currentDay]);
+  const miniGameSceneAsset =
+    hydrated && typeof window !== "undefined"
+      ? new URL(sceneImagePath("garden"), window.location.href).href
+      : sceneImagePath("garden");
+  const miniGameItemsAsset =
+    hydrated && typeof window !== "undefined"
+      ? new URL(miniGameItemImagePath(), window.location.href).href
+      : miniGameItemImagePath();
 
   useEffect(() => {
     const hydrateTimer = window.setTimeout(() => {
@@ -2521,8 +2529,8 @@ export function PurinPet() {
             aria-labelledby="mini-game-title"
             style={
               {
-                "--game-scene": `url("${sceneImagePath("garden")}")`,
-                "--game-items": `url("${miniGameItemImagePath()}")`,
+                "--game-scene": `url("${miniGameSceneAsset}")`,
+                "--game-items": `url("${miniGameItemsAsset}")`,
               } as CSSProperties
             }
           >

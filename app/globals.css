@@ -7396,3 +7396,172 @@ textarea:focus-visible {
     transition: none !important;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* V7 — soft-mesh mobile motion and high-contrast catch-game readability      */
+/* -------------------------------------------------------------------------- */
+
+.mascot-canvas {
+  filter:
+    drop-shadow(0 8px 7px rgba(64, 39, 25, 0.16))
+    drop-shadow(0 1px 1px rgba(255, 248, 210, 0.28));
+}
+
+.canvas-mascot .age-cheek {
+  display: none !important;
+}
+
+.dessert-catch-field {
+  background-color: #283247;
+}
+
+.dessert-catch-field::before {
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(20, 27, 45, 0.34),
+      rgba(24, 31, 45, 0.22) 55%,
+      rgba(13, 25, 27, 0.44)
+    ),
+    radial-gradient(
+      circle at 50% 16%,
+      rgba(255, 251, 211, 0.24),
+      transparent 30%
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 calc(25% - 1px),
+      rgba(255, 255, 255, 0.08) 25%,
+      transparent calc(25% + 1px) 50%
+    );
+}
+
+.game-falling-item {
+  --item-accent: #ffd358;
+  --item-score: "+";
+  border: 3px solid rgba(255, 255, 255, 0.96);
+  border-radius: 50%;
+  background-color: rgba(37, 30, 49, 0.82);
+  background-image:
+    var(--game-items),
+    radial-gradient(circle, rgba(48, 38, 61, 0.9), rgba(24, 22, 34, 0.84));
+  background-repeat: no-repeat;
+  background-size: 200% 200%, 100% 100%;
+  box-shadow:
+    0 0 0 4px var(--item-accent),
+    0 7px 18px rgba(14, 15, 25, 0.48),
+    0 0 20px color-mix(in srgb, var(--item-accent) 64%, transparent);
+  filter: none;
+  isolation: isolate;
+}
+
+.game-falling-item::after {
+  position: absolute;
+  right: -8px;
+  bottom: -7px;
+  min-width: 22px;
+  padding: 3px 5px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  color: #fff;
+  background: #30243a;
+  box-shadow: 0 3px 8px rgba(13, 12, 22, 0.35);
+  content: var(--item-score);
+  font-size: 9px;
+  font-weight: 950;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 1px rgba(0, 0, 0, 0.28);
+}
+
+.game-falling-item.item-pudding {
+  --item-accent: #ffbd38;
+  --item-score: "+2";
+  background-position: 0 0, center;
+}
+
+.game-falling-item.item-berry {
+  --item-accent: #ff6476;
+  --item-score: "+3";
+  background-position: 100% 0, center;
+}
+
+.game-falling-item.item-star {
+  --item-accent: #ffe14b;
+  --item-score: "+5";
+  background-position: 0 100%, center;
+  filter: none;
+}
+
+.game-falling-item.item-soap {
+  --item-accent: #57d7ff;
+  --item-score: "避";
+  background-position: 100% 100%, center;
+  filter: none;
+}
+
+.legend-item {
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background-color: #30283c;
+  background-image:
+    var(--game-items),
+    radial-gradient(circle, #4a3c59, #241e31);
+  background-repeat: no-repeat;
+  background-size: 200% 200%, 100% 100%;
+  box-shadow:
+    0 0 0 2px rgba(94, 72, 111, 0.38),
+    0 3px 7px rgba(31, 24, 38, 0.28);
+  filter: none;
+}
+
+.game-legend .legend-item.item-pudding {
+  background-position: 0 0, center;
+}
+
+.game-legend .legend-item.item-berry {
+  background-position: 100% 0, center;
+}
+
+.game-legend .legend-item.item-star {
+  background-position: 0 100%, center;
+  filter: none;
+}
+
+.game-legend .legend-item.item-soap {
+  background-position: 100% 100%, center;
+  filter: none;
+}
+
+.dessert-basket {
+  border-color: #fff4cf;
+  box-shadow:
+    0 0 0 4px rgba(74, 45, 28, 0.82),
+    inset 0 5px rgba(255, 224, 169, 0.72),
+    0 12px 18px rgba(18, 16, 23, 0.4);
+}
+
+@media (max-width: 560px) {
+  .game-falling-item {
+    border-width: 2px;
+    box-shadow:
+      0 0 0 3px var(--item-accent),
+      0 6px 14px rgba(14, 15, 25, 0.5),
+      0 0 16px color-mix(in srgb, var(--item-accent) 60%, transparent);
+  }
+
+  .game-falling-item::after {
+    right: -7px;
+    bottom: -6px;
+    min-width: 20px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+}
+
+@media (pointer: coarse) {
+  .canvas-mascot .mascot-rig {
+    transform: none !important;
+    transition: none;
+  }
+}
