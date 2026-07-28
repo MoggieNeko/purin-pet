@@ -6983,3 +6983,416 @@ textarea:focus-visible {
     transition-duration: 100ms;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* V6 — single-pass Canvas mascot and immersive desktop-companion layout      */
+/* -------------------------------------------------------------------------- */
+
+.canvas-mascot {
+  contain: layout style;
+}
+
+.canvas-mascot .mascot-stage-shell {
+  filter: none;
+  transform: none !important;
+}
+
+.canvas-mascot .mascot-rig {
+  animation: none !important;
+  transform: rotateX(var(--pet-tilt-y)) rotateY(var(--pet-tilt-x)) !important;
+  transform-origin: 50% 78%;
+  transition: transform 180ms ease-out;
+}
+
+.mascot-canvas {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: auto;
+  pointer-events: none;
+}
+
+.canvas-mascot .mascot-ground-shadow {
+  z-index: 1;
+  right: 23%;
+  bottom: 5%;
+  left: 23%;
+  height: 8%;
+  animation: mascot-shadow-breathe 3.8s ease-in-out infinite;
+}
+
+.canvas-mascot .mascot-depth-glow {
+  z-index: 7;
+  inset: 16% 19% 20%;
+  opacity: 0.42;
+}
+
+.canvas-mascot .growth-details {
+  z-index: 8;
+}
+
+.canvas-mascot .mascot-fx,
+.canvas-mascot .care-action-fx,
+.canvas-mascot .petting-hearts,
+.canvas-mascot .mascot-action-caption {
+  z-index: 10;
+}
+
+.canvas-mascot.condition-critical .mascot-canvas {
+  opacity: 0.94;
+}
+
+.canvas-mascot.stage-child .age-cheek {
+  top: 45%;
+  left: 34%;
+  box-shadow: 54px 0 rgba(248, 154, 141, 0.32);
+}
+
+.canvas-mascot.stage-middle .age-glasses,
+.canvas-mascot.stage-senior .age-glasses {
+  top: 35%;
+}
+
+.canvas-mascot.stage-senior .age-cane {
+  right: 19%;
+  bottom: 18%;
+}
+
+.desktop-pet-toggle {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.43);
+  border-radius: 999px;
+  color: #76594b;
+  background: rgba(255, 250, 238, 0.84);
+  box-shadow: 0 5px 15px rgba(43, 27, 20, 0.13);
+  backdrop-filter: blur(10px) saturate(1.25);
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.desktop-pet-toggle span {
+  font-size: 11px;
+}
+
+.desktop-pet-toggle[aria-pressed="true"] {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(91, 57, 40, 0.84);
+}
+
+.illustrated-room .room-topline {
+  gap: 6px;
+}
+
+.illustrated-room .daily-gift {
+  margin-right: auto;
+}
+
+.desktop-pet-tip {
+  position: absolute;
+  z-index: 18;
+  right: 50%;
+  bottom: 70px;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 999px;
+  color: rgba(81, 55, 43, 0.82);
+  background: rgba(255, 250, 239, 0.76);
+  box-shadow: 0 6px 18px rgba(43, 28, 20, 0.13);
+  backdrop-filter: blur(12px) saturate(1.25);
+  font-size: 8px;
+  font-weight: 800;
+  transform: translateX(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 860px) {
+  .pet-app:not(.desktop-pet-mode) {
+    padding: 24px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .app-shell {
+    display: grid;
+    width: min(100%, 1180px);
+    min-height: min(820px, calc(100svh - 48px));
+    grid-template-columns: 310px minmax(500px, 1fr);
+    grid-template-rows: auto auto minmax(180px, 1fr) auto auto;
+    grid-template-areas:
+      "topbar topbar"
+      "level room"
+      "stats room"
+      "note room"
+      "dock room";
+    gap: 12px 18px;
+    padding: 22px;
+    border-radius: 34px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .topbar {
+    grid-area: topbar;
+    align-items: center;
+    padding-bottom: 4px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .topbar h1 {
+    font-size: 32px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .level-row {
+    grid-area: level;
+    align-self: start;
+    margin-top: 0;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .stats-grid {
+    grid-area: stats;
+    align-self: start;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 9px;
+    margin-top: 0;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .stat-card {
+    padding: 11px 10px 9px;
+    border-radius: 15px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .stat-heading {
+    margin-bottom: 9px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .stat-copy > span {
+    font-size: 10px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .stat-track {
+    height: 5px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .pet-room {
+    grid-area: room;
+    min-height: 680px;
+    align-self: stretch;
+    margin-top: 0;
+    border-radius: 28px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .illustrated-room .pet-stage {
+    top: 24%;
+    width: min(44vw, 390px);
+    height: min(43vw, 380px);
+  }
+
+  .pet-app:not(.desktop-pet-mode) .illustrated-room .speech-bubble {
+    top: 92px;
+    left: 24px;
+    width: min(42%, 285px);
+    padding: 13px 15px;
+    font-size: 11px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .illustrated-room .room-topline {
+    padding: 18px 18px 0;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .illustrated-room .nameplate {
+    bottom: 22px;
+    padding: 9px 14px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .love-note {
+    grid-area: note;
+    align-self: end;
+    margin-top: 0;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .care-dock {
+    grid-area: dock;
+    align-self: end;
+    margin-top: 0;
+    padding-bottom: 4px;
+  }
+
+  .pet-app:not(.desktop-pet-mode) .bottom-sheet {
+    max-width: 720px;
+  }
+}
+
+.desktop-pet-mode {
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+  padding: 0 !important;
+  background: #2d2531;
+}
+
+.desktop-pet-mode .ambient,
+.desktop-pet-mode .topbar,
+.desktop-pet-mode .level-row,
+.desktop-pet-mode .stats-grid,
+.desktop-pet-mode .love-note {
+  display: none;
+}
+
+.desktop-pet-mode .app-shell {
+  display: block;
+  width: 100vw;
+  max-width: none;
+  height: 100svh;
+  min-height: 100svh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.desktop-pet-mode .pet-room,
+.desktop-pet-mode .illustrated-room {
+  width: 100%;
+  height: 100svh;
+  min-height: 100svh;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.desktop-pet-mode .scene-world {
+  border-radius: 0;
+}
+
+.desktop-pet-mode .scene-illustration {
+  inset: -3%;
+}
+
+.desktop-pet-mode .room-topline {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: 0;
+  left: 0;
+  padding: 10px clamp(12px, 3vw, 34px) 0;
+}
+
+.desktop-pet-mode .speech-bubble {
+  top: max(82px, calc(env(safe-area-inset-top) + 70px));
+  left: clamp(16px, 4vw, 48px);
+  width: min(330px, calc(100% - 32px));
+  padding: 12px 15px;
+  font-size: 10px;
+}
+
+.desktop-pet-mode .pet-stage {
+  top: var(--desktop-pet-y);
+  left: var(--desktop-pet-x);
+  width: clamp(220px, 30vw, 390px);
+  height: clamp(220px, 30vw, 390px);
+  cursor: grab;
+  touch-action: none;
+  transform: translate(-50%, -50%);
+  transition:
+    left 5.2s cubic-bezier(0.4, 0, 0.2, 1),
+    top 5.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.desktop-pet-mode .pet-stage.is-dragging {
+  z-index: 20;
+  cursor: grabbing;
+  transition: none;
+}
+
+.desktop-pet-mode .mascot-wrap {
+  right: 0;
+  left: 0;
+}
+
+.desktop-pet-mode .nameplate {
+  bottom: max(90px, calc(env(safe-area-inset-bottom) + 78px));
+  padding: 8px 13px;
+}
+
+.desktop-pet-mode .desktop-pet-tip {
+  bottom: max(63px, calc(env(safe-area-inset-bottom) + 53px));
+}
+
+.desktop-pet-mode .care-dock {
+  position: fixed;
+  z-index: 45;
+  right: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  width: min(520px, calc(100% - 24px));
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 22px;
+  background: rgba(255, 249, 236, 0.78);
+  box-shadow: 0 15px 38px rgba(37, 23, 17, 0.22);
+  backdrop-filter: blur(18px) saturate(1.3);
+  transform: translateX(50%);
+}
+
+.desktop-pet-mode .care-dock button {
+  min-width: 0;
+}
+
+.desktop-pet-mode .care-icon {
+  width: 43px;
+  height: 43px;
+}
+
+.desktop-pet-mode .bottom-sheet,
+.desktop-pet-mode .modal-backdrop,
+.desktop-pet-mode .toast {
+  z-index: 100;
+}
+
+@media (max-width: 560px) {
+  .desktop-pet-toggle {
+    padding-inline: 7px;
+    font-size: 7px;
+  }
+
+  .desktop-pet-mode .daily-gift > span:last-child {
+    display: none;
+  }
+
+  .desktop-pet-mode .pet-stage {
+    width: min(76vw, 310px);
+    height: min(76vw, 310px);
+  }
+
+  .desktop-pet-mode .desktop-pet-tip {
+    max-width: calc(100% - 24px);
+    overflow: hidden;
+    font-size: 7px;
+    text-overflow: ellipsis;
+  }
+
+  .desktop-pet-mode .care-dock {
+    padding-inline: 7px;
+  }
+
+  .desktop-pet-mode .care-dock button small {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-canvas,
+  .desktop-pet-mode .pet-stage {
+    transition: none !important;
+  }
+}

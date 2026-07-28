@@ -395,12 +395,16 @@ export function PurinPet() {
     feedbackId: 0,
     items: [],
   });
+  const [desktopPetMode, setDesktopPetMode] = useState(false);
+  const [petPosition, setPetPosition] = useState({ x: 50, y: 65 });
+  const [petDragging, setPetDragging] = useState(false);
 
   const actionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const importInput = useRef<HTMLInputElement | null>(null);
   const actionLock = useRef(false);
   const miniGameItemId = useRef(1);
+  const petDragActive = useRef(false);
 
   const now = clock || game.lastUpdated || 0;
   const condition = useMemo(
@@ -515,6 +519,9 @@ export function PurinPet() {
       setCurrentDay(localDateKey(new Date(now)));
       try {
         const saved = window.localStorage.getItem(STORAGE_KEY);
+        setDesktopPetMode(
+          window.localStorage.getItem("purin-pet-desktop-mode") === "true",
+        );
         if (saved) {
           const restored = applyTimeDecay(
             normalizeState(JSON.parse(saved), now),
@@ -566,6 +573,35 @@ export function PurinPet() {
     if (!hydrated) return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(game));
   }, [game, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem(
+      "purin-pet-desktop-mode",
+      String(desktopPetMode),
+    );
+  }, [desktopPetMode, hydrated]);
+
+  useEffect(() => {
+    if (!desktopPetMode || action) return;
+    const roamTimer = window.setInterval(() => {
+      if (petDragActive.current) return;
+      setPetPosition({
+        x: 18 + Math.random() * 64,
+        y: 55 + Math.random() * 23,
+      });
+    }, 6500);
+    return () => window.clearInterval(roamTimer);
+  }, [action, desktopPetMode]);
+
+  useEffect(() => {
+    if (!desktopPetMode) return;
+    const exitOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDesktopPetMode(false);
+    };
+    window.addEventListener("keydown", exitOnEscape);
+    return () => window.removeEventListener("keydown", exitOnEscape);
+  }, [desktopPetMode]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -1332,11 +1368,25 @@ export function PurinPet() {
     playTone("tap");
   };
 
+  const moveDesktopPet = (
+    clientX: number,
+    clientY: number,
+    stage: HTMLDivElement,
+  ) => {
+    const room = stage.closest<HTMLElement>(".pet-room");
+    if (!room) return;
+    const bounds = room.getBoundingClientRect();
+    setPetPosition({
+      x: clamp(((clientX - bounds.left) / bounds.width) * 100, 12, 88),
+      y: clamp(((clientY - bounds.top) / bounds.height) * 100, 42, 82),
+    });
+  };
+
   return (
     <main
       className={`pet-app condition-${condition} ${
         hydrated ? "is-ready" : ""
-      }`}
+      } ${desktopPetMode ? "desktop-pet-mode" : ""}`}
     >
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
@@ -1488,6 +1538,17 @@ export function PurinPet() {
               </button>
             )}
             <button
+              className="desktop-pet-toggle"
+              onClick={() => setDesktopPetMode((current) => !current)}
+              aria-pressed={desktopPetMode}
+              aria-label={
+                desktopPetMode ? "離開桌面寵物模式" : "開啟桌面寵物模式"
+              }
+            >
+              <span aria-hidden="true">{desktopPetMode ? "↙" : "▣"}</span>
+              {desktopPetMode ? "返回" : "桌寵"}
+            </button>
+            <button
               className="journal-button"
               onClick={() => setPanel("journal")}
               aria-label="打開成長日記"
@@ -1507,7 +1568,55 @@ export function PurinPet() {
             {speech}
           </div>
 
-          <div className="pet-stage">
+          <div
+            className={`pet-stage ${
+              desktopPetMode ? "is-desktop-draggable" : ""
+            } ${petDragging ? "is-dragging" : ""}`}
+            style={
+              desktopPetMode
+                ? ({
+                    "--desktop-pet-x": `${petPosition.x}%`,
+                    "--desktop-pet-y": `${petPosition.y}%`,
+                  } as CSSProperties)
+                : undefined
+            }
+            onPointerDown={(event) => {
+              if (!desktopPetMode) return;
+              petDragActive.current = true;
+              setPetDragging(true);
+              event.currentTarget.setPointerCapture(event.pointerId);
+              moveDesktopPet(
+                event.clientX,
+                event.clientY,
+                event.currentTarget,
+              );
+            }}
+            onPointerMove={(event) => {
+              if (
+                !desktopPetMode ||
+                !event.currentTarget.hasPointerCapture(event.pointerId)
+              ) {
+                return;
+              }
+              moveDesktopPet(
+                event.clientX,
+                event.clientY,
+                event.currentTarget,
+              );
+            }}
+            onPointerUp={(event) => {
+              if (!desktopPetMode) return;
+              petDragActive.current = false;
+              setPetDragging(false);
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              }
+            }}
+            onPointerCancel={() => {
+              petDragActive.current = false;
+              setPetDragging(false);
+            }}
+          >
             <div className="mascot-wrap">
               <PurinMascot
                 outfit={game.selectedOutfit}
@@ -1549,6 +1658,12 @@ export function PurinPet() {
               {conditionLabel(condition)} · {currentGrowth.label}
             </span>
           </div>
+
+          {desktopPetMode && (
+            <div className="desktop-pet-tip" role="status">
+              拖住 {game.petName} 周圍行 · 輕按摸摸佢 · Esc 返回
+            </div>
+          )}
 
           <div className="room-rug" aria-hidden="true" />
           <div className="toy-ball" aria-hidden="true" />
