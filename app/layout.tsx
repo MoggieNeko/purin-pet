@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Purin Pet — 你嘅小小布甸狗",
-  description: "一隻會掛住你、陪你每日生活嘅小小布甸狗。",
+  description:
+    "一隻有 2.5D 動態、精緻場景同五階段成長，會掛住你嘅小小布甸狗。",
   applicationName: "Purin Pet",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

@@ -1,6 +1,11 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import {
+  type CSSProperties,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 export type OutfitId =
   | "classic"
@@ -30,15 +35,25 @@ export type PetCondition =
   | "sleepy"
   | "critical";
 
+export type GrowthStageId =
+  | "child"
+  | "teen"
+  | "adult"
+  | "middle"
+  | "senior";
+
 type PurinMascotProps = {
   outfit: OutfitId;
   condition: PetCondition;
   action?: string | null;
   name: string;
   baby?: boolean;
+  growthStage?: GrowthStageId;
+  interactive?: boolean;
 };
 
 type SpriteSheet = "core" | "adventure" | "fancy" | "funny";
+type IdlePose = "breathe" | "curious" | "sniff" | "sway" | "delighted";
 
 type SpriteMeta = {
   sheet: SpriteSheet;
@@ -71,6 +86,13 @@ const SHEET_FILE: Record<SpriteSheet, string> = {
   fancy: "fancy-outfits.webp",
   funny: "funny-outfits.webp",
 };
+
+const IDLE_POSES: IdlePose[] = [
+  "breathe",
+  "curious",
+  "sniff",
+  "sway",
+];
 
 function ConditionEffects({ condition }: { condition: PetCondition }) {
   if (condition === "radiant") {
@@ -141,29 +163,113 @@ export function PurinMascot({
   action = null,
   name,
   baby = false,
+  growthStage = "adult",
+  interactive = false,
 }: PurinMascotProps) {
   const sprite = SPRITES[outfit];
+  const effectiveStage = baby ? "child" : growthStage;
+  const [idlePose, setIdlePose] = useState<IdlePose>("breathe");
+  const [petted, setPetted] = useState(false);
+  const petTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const spriteStyle: CSSProperties = {
     backgroundImage: `url("./purin-sprites/${SHEET_FILE[sprite.sheet]}")`,
     backgroundPosition: `${sprite.x} ${sprite.y}`,
-  } as CSSProperties;
+  };
+
+  useEffect(() => {
+    if (!interactive) return;
+    let poseIndex = 0;
+    const timer = window.setInterval(() => {
+      poseIndex = (poseIndex + 1) % IDLE_POSES.length;
+      setIdlePose(IDLE_POSES[poseIndex]);
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, [interactive]);
+
+  useEffect(
+    () => () => {
+      if (petTimer.current) clearTimeout(petTimer.current);
+    },
+    [],
+  );
+
+  const reactToPet = () => {
+    if (!interactive) return;
+    if (petTimer.current) clearTimeout(petTimer.current);
+    setPetted(true);
+    setIdlePose("delighted");
+    petTimer.current = setTimeout(() => {
+      setPetted(false);
+      setIdlePose("breathe");
+    }, 1350);
+  };
 
   return (
     <span
-      className={`purin-mascot condition-${condition} outfit-${outfit} ${
+      className={`purin-mascot condition-${condition} outfit-${outfit} stage-${effectiveStage} idle-${idlePose} ${
         baby ? "is-baby" : ""
+      } ${interactive ? "is-interactive" : ""} ${
+        petted ? "is-petted" : ""
       }`}
-      role="img"
-      aria-label={`${name}，目前狀態：${condition}`}
+      role={interactive ? "button" : "img"}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={
+        interactive
+          ? `${name}，目前狀態：${condition}，輕按可以摸摸佢`
+          : `${name}，目前狀態：${condition}`
+      }
+      onPointerMove={(event) => {
+        if (!interactive) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+        const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+        event.currentTarget.style.setProperty(
+          "--pet-tilt-x",
+          `${x * 7}deg`,
+        );
+        event.currentTarget.style.setProperty(
+          "--pet-tilt-y",
+          `${y * -5}deg`,
+        );
+      }}
+      onPointerLeave={(event) => {
+        event.currentTarget.style.setProperty("--pet-tilt-x", "0deg");
+        event.currentTarget.style.setProperty("--pet-tilt-y", "0deg");
+      }}
+      onPointerDown={reactToPet}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          reactToPet();
+        }
+      }}
     >
-      <span className={`mascot-rig mascot-action-${action ?? "idle"}`}>
-        <span className="mascot-ground-shadow" aria-hidden="true" />
-        <span
-          className="mascot-sprite"
-          aria-hidden="true"
-          style={spriteStyle}
-        />
-        <ConditionEffects condition={condition} />
+      <span className="mascot-stage-shell">
+        <span className={`mascot-rig mascot-action-${action ?? "idle"}`}>
+          <span className="mascot-ground-shadow" aria-hidden="true" />
+          <span
+            className="mascot-sprite mascot-body-sprite"
+            aria-hidden="true"
+            style={spriteStyle}
+          />
+          <span
+            className="mascot-sprite mascot-head-sprite"
+            aria-hidden="true"
+            style={spriteStyle}
+          />
+          <span className="mascot-depth-glow" aria-hidden="true" />
+          <span className="growth-details" aria-hidden="true">
+            <i className="age-glasses" />
+            <i className="age-muzzle" />
+            <i className="age-cane" />
+          </span>
+          <ConditionEffects condition={condition} />
+          <span className="petting-hearts" aria-hidden="true">
+            <i>♥</i>
+            <i>♡</i>
+            <i>♥</i>
+          </span>
+        </span>
       </span>
     </span>
   );

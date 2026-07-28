@@ -1,10 +1,20 @@
-import type { OutfitId, PetCondition } from "./PurinMascot";
+import type {
+  GrowthStageId,
+  OutfitId,
+  PetCondition,
+} from "./PurinMascot";
 
 export type StatKey = "fullness" | "happiness" | "cleanliness" | "energy";
 export type CareAction = "feed" | "bath" | "play" | "sleep";
 export type CooldownKey = CareAction | "game";
 export type PetAction = CareAction | "gift" | "level" | "event" | "baby";
-export type Panel = "journal" | "closet" | "family" | "settings" | null;
+export type Panel =
+  | "journal"
+  | "growth"
+  | "closet"
+  | "family"
+  | "settings"
+  | null;
 export type ClosetTab = "outfits" | "scenes";
 export type SceneId =
   | "cozy"
@@ -35,7 +45,7 @@ export type ChildPet = {
 };
 
 export type GameState = {
-  version: 2;
+  version: 3;
   petName: string;
   level: number;
   xp: number;
@@ -46,6 +56,7 @@ export type GameState = {
   createdAt: number;
   lastUpdated: number;
   totalActions: number;
+  growthStageSeen: GrowthStageId;
   sound: boolean;
   reminders: boolean;
   loveNote: string;
@@ -95,12 +106,76 @@ export type RandomEvent = {
   choices: [RandomEventChoice, RandomEventChoice];
 };
 
+export type GrowthStageMeta = {
+  id: GrowthStageId;
+  label: string;
+  shortLabel: string;
+  icon: string;
+  minLevel: number;
+  minDays: number;
+  description: string;
+  personality: string;
+};
+
 export const DEFAULT_NOTE = "今日都要記住，有人好鍾意你 ♡";
 export const STORAGE_KEY = "purin-pet-save-v1";
 export const DAY_MS = 86_400_000;
 export const EVENT_COOLDOWN_MS = 20 * 60_000;
 export const FAMILY_WAIT_MS = DAY_MS;
 export const FAMILY_BIRTH_GAP_MS = 7 * DAY_MS;
+
+export const GROWTH_STAGES: GrowthStageMeta[] = [
+  {
+    id: "child",
+    label: "幼年期",
+    shortLabel: "幼年",
+    icon: "●",
+    minLevel: 1,
+    minDays: 1,
+    description: "身形細細、頭仔圓圓，對每樣嘢都充滿好奇。",
+    personality: "最鍾意被輕撫，同你一齊探索屋企。",
+  },
+  {
+    id: "teen",
+    label: "青年期",
+    shortLabel: "青年",
+    icon: "✦",
+    minLevel: 5,
+    minDays: 3,
+    description: "耳仔更有精神，動作變得活潑，開始有自己喜好。",
+    personality: "特別貪玩，完成玩耍後會有更誇張嘅開心反應。",
+  },
+  {
+    id: "adult",
+    label: "壯年期",
+    shortLabel: "壯年",
+    icon: "◆",
+    minLevel: 12,
+    minDays: 10,
+    description: "身形最飽滿有力，亦開始懂得好好照顧身邊嘅人。",
+    personality: "狀態穩定，係建立家庭前最重要嘅成長階段。",
+  },
+  {
+    id: "middle",
+    label: "中年期",
+    shortLabel: "中年",
+    icon: "◇",
+    minLevel: 22,
+    minDays: 30,
+    description: "步伐開始沉穩，面上多咗溫柔同可靠嘅感覺。",
+    personality: "比以前更重視陪伴，每次見到你都會特別安心。",
+  },
+  {
+    id: "senior",
+    label: "老年期",
+    shortLabel: "老年",
+    icon: "♡",
+    minLevel: 35,
+    minDays: 60,
+    description: "毛色變得柔和，動作慢咗，但同你嘅羈絆最深。",
+    personality: "唔會離開或者死亡，只會慢慢享受同你一齊嘅日子。",
+  },
+];
 
 export const STAT_META: Array<{
   key: StatKey;
@@ -767,4 +842,28 @@ export function localDateKey(date = new Date()) {
 
 export function daysTogether(state: GameState, now = Date.now()) {
   return Math.max(1, Math.floor((now - state.createdAt) / DAY_MS) + 1);
+}
+
+export function growthStageFor(
+  level: number,
+  createdAt: number,
+  now = Date.now(),
+) {
+  const livedDays = Math.max(
+    1,
+    Math.floor((now - createdAt) / DAY_MS) + 1,
+  );
+  return (
+    [...GROWTH_STAGES]
+      .reverse()
+      .find(
+        (stage) =>
+          level >= stage.minLevel && livedDays >= stage.minDays,
+      ) ?? GROWTH_STAGES[0]
+  );
+}
+
+export function nextGrowthStage(stage: GrowthStageId) {
+  const index = GROWTH_STAGES.findIndex((item) => item.id === stage);
+  return index >= 0 ? GROWTH_STAGES[index + 1] ?? null : GROWTH_STAGES[0];
 }

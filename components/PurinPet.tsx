@@ -8,7 +8,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { PurinMascot, type OutfitId } from "./PurinMascot";
+import {
+  PurinMascot,
+  type GrowthStageId,
+  type OutfitId,
+} from "./PurinMascot";
+import { PurinScene, sceneImagePath } from "./PurinScene";
 import {
   ACTION_EFFECTS,
   ACTION_META,
@@ -16,6 +21,7 @@ import {
   EVENT_COOLDOWN_MS,
   FAMILY_BIRTH_GAP_MS,
   FAMILY_WAIT_MS,
+  GROWTH_STAGES,
   OUTFITS,
   RANDOM_EVENTS,
   SCENES,
@@ -28,7 +34,9 @@ import {
   conditionLabel,
   daysTogether,
   formatCountdown,
+  growthStageFor,
   localDateKey,
+  nextGrowthStage,
   statStateLabel,
   xpRequired,
   type CareAction,
@@ -57,7 +65,7 @@ type BeforeInstallPromptEvent = Event & {
 
 function makeInitialState(now = Date.now()): GameState {
   return {
-    version: 2,
+    version: 3,
     petName: "布甸仔",
     level: 1,
     xp: 0,
@@ -68,6 +76,7 @@ function makeInitialState(now = Date.now()): GameState {
     createdAt: now,
     lastUpdated: now,
     totalActions: 0,
+    growthStageSeen: "child",
     sound: true,
     reminders: false,
     loveNote: DEFAULT_NOTE,
@@ -130,13 +139,23 @@ function normalizeState(value: LegacyState, now: number): GameState {
     ? value.ownedScenes.filter((item): item is SceneId => validScenes.has(item))
     : ["cozy"];
   const cooldowns = value.cooldowns ?? base.cooldowns;
+  const createdAt = Number(value.createdAt) || now;
+  const level = Math.max(1, Math.floor(Number(value.level) || 1));
+  const derivedGrowthStage = growthStageFor(level, createdAt, now).id;
+  const validGrowthStages = new Set<GrowthStageId>(
+    GROWTH_STAGES.map((item) => item.id),
+  );
   return {
     ...base,
     ...value,
-    version: 2,
+    version: 3,
     lastUpdated: Number(value.lastUpdated) || now,
-    createdAt: Number(value.createdAt) || now,
-    level: Math.max(1, Math.floor(Number(value.level) || 1)),
+    createdAt,
+    level,
+    growthStageSeen:
+      value.growthStageSeen && validGrowthStages.has(value.growthStageSeen)
+        ? value.growthStageSeen
+        : derivedGrowthStage,
     xp: Math.max(0, Number(value.xp) || 0),
     coins: Math.max(0, Math.floor(Number(value.coins) || 0)),
     bond: Math.max(
@@ -253,17 +272,22 @@ function defaultPetMessage(state: GameState) {
   if (conditionCopy) {
     return conditionCopy;
   }
+  const growthStage = growthStageFor(
+    state.level,
+    state.createdAt,
+    Date.now(),
+  ).id;
+  const growthCopy: Record<GrowthStageId, string> = {
+    child: "今日又有咩新嘢玩？摸摸我先啦～",
+    teen: "我而家精力充沛，陪我玩一陣啦！",
+    adult: "你返嚟喇，我已經識得好好照顧屋企 ♡",
+    middle: "慢慢嚟就好，有你陪住就最安心。",
+    senior: "我行慢咗少少，但見到你依然最開心 ♡",
+  };
   const hour = new Date().getHours();
   if (hour < 11) return "早晨呀！今日都要開心～";
   if (hour >= 22) return "夜喇，我哋一齊唞吓？";
-  return "你返嚟喇！我等咗你好耐 ♡";
-}
-
-function growthStageLabel(level: number) {
-  if (level >= 18) return "成年期";
-  if (level >= 10) return "少年期";
-  if (level >= 4) return "成長期";
-  return "幼犬期";
+  return growthCopy[growthStage];
 }
 
 function chooseEvent(state: GameState, now: number) {
@@ -329,6 +353,39 @@ export function PurinPet() {
     Math.round((game.xp / xpRequired(game.level)) * 100),
   );
   const togetherDays = daysTogether(game, now || game.createdAt);
+  const currentGrowth = useMemo(
+    () =>
+      growthStageFor(
+        game.level,
+        game.createdAt,
+        now || game.createdAt,
+      ),
+    [game.createdAt, game.level, now],
+  );
+  const upcomingGrowth = useMemo(
+    () => nextGrowthStage(currentGrowth.id),
+    [currentGrowth.id],
+  );
+  const growthStageIndex = GROWTH_STAGES.findIndex(
+    (item) => item.id === currentGrowth.id,
+  );
+  const growthProgress = upcomingGrowth
+    ? Math.round(
+        Math.min(
+          1,
+          Math.max(
+            0,
+            (game.level - currentGrowth.minLevel) /
+              (upcomingGrowth.minLevel - currentGrowth.minLevel),
+          ),
+          Math.max(
+            0,
+            (togetherDays - currentGrowth.minDays) /
+              (upcomingGrowth.minDays - currentGrowth.minDays),
+          ),
+        ) * 100,
+      )
+    : 100;
   const familyCost = 600 + game.children.length * 250;
   const familyBondTarget = 260 + game.children.length * 120;
   const birthGapRemaining =
@@ -339,7 +396,12 @@ export function PurinPet() {
           game.familyLastBirthAt + FAMILY_BIRTH_GAP_MS - now,
         );
   const familyRequirements = [
-    { label: "成長到成年期（Lv.18）", done: game.level >= 18 },
+    {
+      label: "進入壯年期並達 Lv.18",
+      done:
+        game.level >= 18 &&
+        ["adult", "middle", "senior"].includes(currentGrowth.id),
+    },
     { label: `一齊生活滿 14 日（${togetherDays}/14）`, done: togetherDays >= 14 },
     {
       label: `羈絆達 ${familyBondTarget}（${game.bond}/${familyBondTarget}）`,
@@ -523,6 +585,45 @@ export function PurinPet() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 2200);
   };
+
+  useEffect(() => {
+    if (!hydrated || game.growthStageSeen === currentGrowth.id) return;
+    const seenIndex = GROWTH_STAGES.findIndex(
+      (item) => item.id === game.growthStageSeen,
+    );
+    if (growthStageIndex <= seenIndex) return;
+
+    const growthTime = now || Date.now();
+    const growthTimer = window.setTimeout(() => {
+      setGame((current) => {
+        if (current.growthStageSeen === currentGrowth.id) return current;
+        return {
+          ...current,
+          growthStageSeen: currentGrowth.id,
+          log: [
+            {
+              id: `${growthTime}-growth-${currentGrowth.id}`,
+              text: `${current.petName} 成長到${currentGrowth.label}`,
+              time: growthTime,
+            },
+            ...current.log,
+          ].slice(0, 16),
+        };
+      });
+      setSpeech(`我成長到${currentGrowth.label}喇，多謝你一直陪住我 ♡`);
+      setToast(`新成長階段：${currentGrowth.label}`);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(""), 2600);
+    }, 0);
+    return () => window.clearTimeout(growthTimer);
+  }, [
+    currentGrowth.id,
+    currentGrowth.label,
+    game.growthStageSeen,
+    growthStageIndex,
+    hydrated,
+    now,
+  ]);
 
   const playTone = (kind: "tap" | "reward" | "soft" = "tap") => {
     if (!game.sound) return;
@@ -1118,7 +1219,13 @@ export function PurinPet() {
         </header>
 
         <section className="level-row" aria-label="成長進度">
-          <span className="level-badge">Lv.{game.level}</span>
+          <button
+            className="level-badge growth-open-button"
+            onClick={() => setPanel("growth")}
+            aria-label={`Lv.${game.level}，目前${currentGrowth.label}，打開成長足跡`}
+          >
+            Lv.{game.level} · {currentGrowth.shortLabel}
+          </button>
           <div
             className="level-track"
             role="progressbar"
@@ -1178,10 +1285,24 @@ export function PurinPet() {
         </section>
 
         <section
-          className={`pet-room scene-${game.selectedScene} action-${
+          className={`pet-room illustrated-room scene-${game.selectedScene} action-${
             action ?? "idle"
           } condition-${condition}`}
+          onPointerMove={(event) => {
+            const bounds = event.currentTarget.getBoundingClientRect();
+            const x =
+              ((event.clientX - bounds.left) / bounds.width - 0.5) * -12;
+            const y =
+              ((event.clientY - bounds.top) / bounds.height - 0.5) * -8;
+            event.currentTarget.style.setProperty("--room-x", `${x}px`);
+            event.currentTarget.style.setProperty("--room-y", `${y}px`);
+          }}
+          onPointerLeave={(event) => {
+            event.currentTarget.style.setProperty("--room-x", "0px");
+            event.currentTarget.style.setProperty("--room-y", "0px");
+          }}
         >
+          <PurinScene scene={game.selectedScene} />
           <div className="room-topline">
             <button
               className={`daily-gift ${giftClaimed ? "is-claimed" : ""}`}
@@ -1235,6 +1356,8 @@ export function PurinPet() {
                 condition={condition}
                 action={action}
                 name={game.petName}
+                growthStage={currentGrowth.id}
+                interactive
               />
             </div>
 
@@ -1265,7 +1388,7 @@ export function PurinPet() {
             <span className="online-dot" />
             <strong>{game.petName}</strong>
             <span>
-              {conditionLabel(condition)} · {growthStageLabel(game.level)}
+              {conditionLabel(condition)} · {currentGrowth.label}
             </span>
           </div>
 
@@ -1375,6 +1498,7 @@ export function PurinPet() {
                 outfit="classic"
                 condition="radiant"
                 name="你嘅小狗"
+                growthStage="child"
               />
             </div>
             <p className="eyebrow">你哋嘅第一日</p>
@@ -1405,11 +1529,13 @@ export function PurinPet() {
             aria-label={
               panel === "journal"
                 ? "成長日記"
-                : panel === "closet"
-                  ? "衣櫃"
-                  : panel === "family"
-                    ? "家庭小屋"
-                    : "設定"
+                : panel === "growth"
+                  ? "成長足跡"
+                  : panel === "closet"
+                    ? "衣櫃"
+                    : panel === "family"
+                      ? "家庭小屋"
+                      : "設定"
             }
             onMouseDown={(event) => event.stopPropagation()}
           >
@@ -1419,20 +1545,24 @@ export function PurinPet() {
                 <p className="eyebrow">
                   {panel === "journal"
                     ? "OUR DAYS"
-                    : panel === "closet"
-                      ? "DRESS UP"
-                      : panel === "family"
-                        ? "OUR FAMILY"
-                        : "MY PET"}
+                    : panel === "growth"
+                      ? "LIFE STAGES"
+                      : panel === "closet"
+                        ? "DRESS UP"
+                        : panel === "family"
+                          ? "OUR FAMILY"
+                          : "MY PET"}
                 </p>
                 <h2>
                   {panel === "journal"
                     ? "成長日記"
-                    : panel === "closet"
-                      ? "小小衣櫃"
-                      : panel === "family"
-                        ? "家庭小屋"
-                        : "設定"}
+                    : panel === "growth"
+                      ? "成長足跡"
+                      : panel === "closet"
+                        ? "小小衣櫃"
+                        : panel === "family"
+                          ? "家庭小屋"
+                          : "設定"}
                 </h2>
               </div>
               <button
@@ -1478,6 +1608,129 @@ export function PurinPet() {
                     ))
                   )}
                 </div>
+              </div>
+            )}
+
+            {panel === "growth" && (
+              <div className="sheet-content growth-content">
+                <section className="growth-hero">
+                  <div className="growth-hero-pet">
+                    <PurinMascot
+                      outfit={game.selectedOutfit}
+                      condition={condition}
+                      name={game.petName}
+                      growthStage={currentGrowth.id}
+                    />
+                  </div>
+                  <div className="growth-hero-copy">
+                    <span className="growth-stage-badge">
+                      第 {growthStageIndex + 1} / {GROWTH_STAGES.length} 階段
+                    </span>
+                    <p className="eyebrow">{currentGrowth.personality}</p>
+                    <h3>{currentGrowth.label}</h3>
+                    <p>{currentGrowth.description}</p>
+                  </div>
+                  <div
+                    className="growth-ring"
+                    style={{
+                      background: `conic-gradient(#d77855 ${growthProgress}%, rgba(121, 72, 47, 0.12) 0)`,
+                    }}
+                    role="progressbar"
+                    aria-label={
+                      upcomingGrowth
+                        ? `前往${upcomingGrowth.label}嘅進度`
+                        : "已完成所有成長階段"
+                    }
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={growthProgress}
+                  >
+                    <span>
+                      <strong>{growthProgress}%</strong>
+                      <small>{upcomingGrowth ? "下一階段" : "圓滿"}</small>
+                    </span>
+                  </div>
+                </section>
+
+                <section className="growth-next-card">
+                  {upcomingGrowth ? (
+                    <>
+                      <span className="growth-next-icon" aria-hidden="true">
+                        {upcomingGrowth.icon}
+                      </span>
+                      <div>
+                        <p className="eyebrow">下一階段 · {upcomingGrowth.label}</p>
+                        <h3>
+                          仲需要
+                          {Math.max(0, upcomingGrowth.minLevel - game.level) > 0
+                            ? ` ${Math.max(0, upcomingGrowth.minLevel - game.level)} 級`
+                            : ""}
+                          {Math.max(0, upcomingGrowth.minLevel - game.level) > 0 &&
+                          Math.max(0, upcomingGrowth.minDays - togetherDays) > 0
+                            ? " 同"
+                            : ""}
+                          {Math.max(0, upcomingGrowth.minDays - togetherDays) > 0
+                            ? ` ${Math.max(0, upcomingGrowth.minDays - togetherDays)} 日`
+                            : ""}
+                          {Math.max(0, upcomingGrowth.minLevel - game.level) === 0 &&
+                          Math.max(0, upcomingGrowth.minDays - togetherDays) === 0
+                            ? " 等成長記錄更新"
+                            : ""}
+                        </h3>
+                        <p>
+                          必須同時達到 Lv.{upcomingGrowth.minLevel}，並一齊生活滿{" "}
+                          {upcomingGrowth.minDays} 日；短時間重複撳按鈕唔會跳過時間。
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <span className="growth-next-icon is-heart" aria-hidden="true">
+                        ♡
+                      </span>
+                      <div>
+                        <p className="eyebrow">一生相伴</p>
+                        <h3>所有成長階段都完成喇</h3>
+                        <p>
+                          老年期唔代表完結。佢唔會離開或者死亡，仍然可以換衫、
+                          去旅行，同你慢慢累積新回憶。
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </section>
+
+                <section className="growth-timeline" aria-label="五個成長階段">
+                  {GROWTH_STAGES.map((stage, index) => {
+                    const unlocked = index <= growthStageIndex;
+                    const selected = stage.id === currentGrowth.id;
+                    return (
+                      <article
+                        className={`${unlocked ? "is-unlocked" : "is-locked"} ${
+                          selected ? "is-current" : ""
+                        }`}
+                        key={stage.id}
+                      >
+                        <div className="growth-node" aria-hidden="true">
+                          <span>{unlocked ? stage.icon : "○"}</span>
+                        </div>
+                        <div>
+                          <header>
+                            <strong>{stage.label}</strong>
+                            <small>
+                              {selected
+                                ? "而家"
+                                : unlocked
+                                  ? "已經歷"
+                                  : `Lv.${stage.minLevel} · 第 ${stage.minDays} 日`}
+                            </small>
+                          </header>
+                          <p>{stage.description}</p>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </section>
               </div>
             )}
 
@@ -1569,6 +1822,9 @@ export function PurinPet() {
                           <span
                             className={`closet-preview scene-preview preview-${item.id}`}
                             aria-hidden="true"
+                            style={{
+                              backgroundImage: `url("${sceneImagePath(item.id)}")`,
+                            }}
                           >
                             {item.symbol}
                           </span>
@@ -1601,6 +1857,7 @@ export function PurinPet() {
                       outfit={game.selectedOutfit}
                       condition={condition}
                       name={game.petName}
+                      growthStage={currentGrowth.id}
                     />
                   </div>
                   <div>
@@ -1611,7 +1868,7 @@ export function PurinPet() {
                         : "未來嘅家庭"}
                     </h3>
                     <p>
-                      呢個係非常後期嘅成長目標。要真正陪伴足夠日子、成為成年期，
+                      呢個係非常後期嘅成長目標。要真正陪伴足夠日子、進入壯年期，
                       先可以準備迎接小寶寶。
                     </p>
                   </div>
@@ -1819,7 +2076,7 @@ export function PurinPet() {
                       <strong>家庭小屋</strong>
                       <small>
                         {game.level < 18
-                          ? `Lv.18 成年期開放・目前羈絆 ${game.bond}`
+                          ? `Lv.18 壯年家庭任務・目前羈絆 ${game.bond}`
                           : `${game.children.length} 位小寶寶・羈絆 ${game.bond}`}
                       </small>
                     </span>
@@ -1855,6 +2112,12 @@ export function PurinPet() {
                 onClick={() => setPanel("journal")}
               >
                 日記
+              </button>
+              <button
+                className={panel === "growth" ? "is-active" : ""}
+                onClick={() => setPanel("growth")}
+              >
+                成長
               </button>
               <button
                 className={panel === "closet" ? "is-active" : ""}

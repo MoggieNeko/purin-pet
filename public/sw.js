@@ -1,4 +1,4 @@
-const CACHE_NAME = "purin-pet-v3";
+const CACHE_NAME = "purin-pet-v4";
 const APP_SHELL = [
   "./",
   "./manifest.webmanifest",
@@ -7,6 +7,18 @@ const APP_SHELL = [
   "./purin-sprites/adventure-outfits.webp",
   "./purin-sprites/fancy-outfits.webp",
   "./purin-sprites/funny-outfits.webp",
+  "./purin-scenes/cozy.webp",
+  "./purin-scenes/cafe.webp",
+  "./purin-scenes/garden.webp",
+  "./purin-scenes/camp.webp",
+  "./purin-scenes/rainy.webp",
+  "./purin-scenes/beach.webp",
+  "./purin-scenes/moon.webp",
+  "./purin-scenes/bakery.webp",
+  "./purin-scenes/arcade.webp",
+  "./purin-scenes/snow.webp",
+  "./purin-scenes/puddingland.webp",
+  "./purin-scenes/upside.webp",
 ];
 
 self.addEventListener("install", (event) => {
