@@ -1490,7 +1490,7 @@ export function PurinPet() {
                     role="tab"
                     aria-selected={closetTab === "outfits"}
                   >
-                    服裝
+                    服裝 <span>{OUTFITS.length}</span>
                   </button>
                   <button
                     className={closetTab === "scenes" ? "is-active" : ""}
@@ -1498,7 +1498,7 @@ export function PurinPet() {
                     role="tab"
                     aria-selected={closetTab === "scenes"}
                   >
-                    場景
+                    場景 <span>{SCENES.length}</span>
                   </button>
                 </div>
                 <p className="sheet-copy">
@@ -1507,7 +1507,9 @@ export function PurinPet() {
                 </p>
                 {closetTab === "outfits" ? (
                   <div className="closet-grid outfit-grid">
-                    {OUTFITS.map((item) => {
+                    {[...OUTFITS]
+                      .sort((a, b) => a.level - b.level)
+                      .map((item) => {
                       const levelLocked = game.level < item.level;
                       const owned = game.ownedOutfits.includes(item.id);
                       const selected = game.selectedOutfit === item.id;
@@ -1519,6 +1521,11 @@ export function PurinPet() {
                           }`}
                           onClick={() => chooseOutfit(item)}
                         >
+                          {(["banana", "pudding", "sushi", "ufo"] as OutfitId[]).includes(
+                            item.id,
+                          ) && (
+                            <span className="item-badge is-funny">搞怪</span>
+                          )}
                           <span className="closet-preview mascot-preview">
                             <PurinMascot
                               outfit={item.id}
@@ -1541,11 +1548,13 @@ export function PurinPet() {
                           </small>
                         </button>
                       );
-                    })}
+                      })}
                   </div>
                 ) : (
                   <div className="closet-grid scene-grid">
-                    {SCENES.map((item) => {
+                    {[...SCENES]
+                      .sort((a, b) => a.level - b.level)
+                      .map((item) => {
                       const levelLocked = game.level < item.level;
                       const owned = game.ownedScenes.includes(item.id);
                       const selected = game.selectedScene === item.id;
@@ -1578,7 +1587,7 @@ export function PurinPet() {
                           </small>
                         </button>
                       );
-                    })}
+                      })}
                   </div>
                 )}
               </div>

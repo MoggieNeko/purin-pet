@@ -13,7 +13,12 @@ export type SceneId =
   | "camp"
   | "rainy"
   | "beach"
-  | "moon";
+  | "moon"
+  | "bakery"
+  | "arcade"
+  | "snow"
+  | "puddingland"
+  | "upside";
 
 export type GameLog = {
   id: string;
@@ -257,6 +262,54 @@ export const OUTFITS: Array<ItemMeta<OutfitId>> = [
     price: 520,
     symbol: "☾",
   },
+  {
+    id: "chef",
+    label: "布甸烘焙師",
+    description: "戴住高帽仔焗焦糖曲奇",
+    level: 10,
+    price: 225,
+    symbol: "♨",
+  },
+  {
+    id: "detective",
+    label: "焦糖小偵探",
+    description: "專門調查消失咗嘅布甸",
+    level: 13,
+    price: 285,
+    symbol: "⌕",
+  },
+  {
+    id: "banana",
+    label: "跣腳香蕉裝",
+    description: "行兩步就自己笑到碌地",
+    level: 15,
+    price: 340,
+    symbol: "⌁",
+  },
+  {
+    id: "pudding",
+    label: "行走布甸杯",
+    description: "究竟係小狗定係甜品？",
+    level: 18,
+    price: 470,
+    symbol: "♨",
+  },
+  {
+    id: "sushi",
+    label: "超肥蝦壽司",
+    description: "趴低就會被誤認做晚餐",
+    level: 22,
+    price: 620,
+    symbol: "≈",
+  },
+  {
+    id: "ufo",
+    label: "紙皮外星飛船",
+    description: "來自布甸星嘅低科技裝備",
+    level: 25,
+    price: 760,
+    symbol: "⌾",
+  },
 ];
 
 export const SCENES: Array<ItemMeta<SceneId>> = [
@@ -315,6 +368,46 @@ export const SCENES: Array<ItemMeta<SceneId>> = [
     level: 20,
     price: 520,
     symbol: "☾",
+  },
+  {
+    id: "bakery",
+    label: "甜甜烘焙工房",
+    description: "焗爐入面永遠有新鮮曲奇",
+    level: 6,
+    price: 145,
+    symbol: "♨",
+  },
+  {
+    id: "arcade",
+    label: "復古扭蛋機舖",
+    description: "霓虹燈、夾公仔同無限代幣",
+    level: 12,
+    price: 275,
+    symbol: "✦",
+  },
+  {
+    id: "snow",
+    label: "棉花糖雪國",
+    description: "雪人個鼻原來係焦糖條",
+    level: 18,
+    price: 455,
+    symbol: "❄",
+  },
+  {
+    id: "puddingland",
+    label: "巨型布甸星球",
+    description: "每行一步，地面都會啫喱震",
+    level: 23,
+    price: 690,
+    symbol: "◉",
+  },
+  {
+    id: "upside",
+    label: "反轉傢俬房",
+    description: "梳化上天花，地毯飛咗上天",
+    level: 27,
+    price: 880,
+    symbol: "↯",
   },
 ];
 

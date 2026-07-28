@@ -1,5 +1,13 @@
-const CACHE_NAME = "purin-pet-v2";
-const APP_SHELL = ["./", "./manifest.webmanifest", "./favicon.svg"];
+const CACHE_NAME = "purin-pet-v3";
+const APP_SHELL = [
+  "./",
+  "./manifest.webmanifest",
+  "./favicon.svg",
+  "./purin-sprites/core-outfits.webp",
+  "./purin-sprites/adventure-outfits.webp",
+  "./purin-sprites/fancy-outfits.webp",
+  "./purin-sprites/funny-outfits.webp",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

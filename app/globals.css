@@ -2771,6 +2771,18 @@ textarea:focus-visible {
   box-shadow: 0 3px 9px rgba(79, 49, 39, 0.08);
 }
 
+.closet-switch button span {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  place-items: center;
+  border-radius: 999px;
+  color: #8a5a45;
+  background: rgba(235, 193, 112, 0.24);
+  font-size: 8px;
+}
+
 .closet-grid button {
   min-height: 186px;
   justify-content: flex-start;
@@ -3420,5 +3432,827 @@ textarea:focus-visible {
 
   .care-dock button small {
     display: none;
+  }
+}
+
+/* Purin Pet V3 — generated sprite rig and richer unlockable worlds */
+.pet-app {
+  background:
+    radial-gradient(circle at 16% 5%, rgba(255, 236, 165, 0.48), transparent 24%),
+    radial-gradient(circle at 90% 29%, rgba(240, 171, 180, 0.16), transparent 27%),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(129, 90, 52, 0.022) 0,
+      rgba(129, 90, 52, 0.022) 1px,
+      transparent 1px,
+      transparent 8px
+    );
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 12px 12px, rgba(232, 132, 144, 0.045) 0 2px, transparent 2.5px) 0 0 / 24px 24px,
+    rgba(255, 250, 240, 0.965);
+}
+
+.topbar h1 {
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.8);
+}
+
+.stat-card {
+  backdrop-filter: blur(8px);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.stat-card.is-low {
+  border-color: rgba(215, 155, 85, 0.3);
+  background: rgba(255, 247, 225, 0.92);
+}
+
+.stat-card.is-critical {
+  border-color: rgba(212, 94, 105, 0.34);
+  background: rgba(255, 237, 235, 0.94);
+  animation: stat-warning 1.8s ease-in-out infinite;
+}
+
+.pet-room {
+  min-height: 414px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 32px 32px 24px 24px;
+  box-shadow:
+    inset 0 0 0 1px rgba(91, 62, 35, 0.1),
+    inset 0 22px 35px rgba(255, 255, 255, 0.16),
+    0 14px 32px rgba(87, 58, 34, 0.11);
+  isolation: isolate;
+}
+
+.pet-room::before,
+.pet-room::after {
+  pointer-events: none;
+}
+
+.pet-stage {
+  top: 112px;
+  width: 292px;
+  height: 270px;
+}
+
+.mascot-wrap {
+  right: 12px;
+  bottom: 0;
+  left: 12px;
+  filter: drop-shadow(0 12px 9px rgba(76, 52, 35, 0.14));
+}
+
+.purin-mascot {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: visible;
+}
+
+.mascot-rig {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: 50% 88%;
+  animation: mascot-sprite-breathe 3.4s ease-in-out infinite;
+}
+
+.mascot-sprite {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: block;
+  background-image: var(--mascot-sheet);
+  background-repeat: no-repeat;
+  background-position: var(--sprite-x) var(--sprite-y);
+  background-size: 200% 200%;
+  transform-origin: 50% 87%;
+  transition:
+    filter 300ms ease,
+    transform 300ms ease;
+}
+
+.mascot-ground-shadow {
+  position: absolute;
+  z-index: 1;
+  right: 20%;
+  bottom: 7%;
+  left: 20%;
+  height: 9%;
+  border-radius: 50%;
+  background: rgba(75, 49, 31, 0.18);
+  filter: blur(6px);
+  transform: scaleX(1.08);
+}
+
+.mascot-fx {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.mascot-fx i {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.radiant-fx i {
+  color: #fff5a6;
+  font-size: 9%;
+  filter: drop-shadow(0 2px 2px rgba(140, 85, 40, 0.22));
+  animation: sprite-sparkle 1.65s ease-in-out infinite;
+}
+
+.radiant-fx i:nth-child(1) {
+  top: 20%;
+  left: 13%;
+}
+
+.radiant-fx i:nth-child(2) {
+  top: 31%;
+  right: 9%;
+  animation-delay: -0.4s;
+}
+
+.radiant-fx i:nth-child(3) {
+  right: 17%;
+  bottom: 23%;
+  animation-delay: -0.85s;
+}
+
+.radiant-fx i:nth-child(4) {
+  bottom: 28%;
+  left: 13%;
+  color: #f39baa;
+  animation-delay: -1.2s;
+}
+
+.hungry-fx i:first-child {
+  top: 8%;
+  right: 2%;
+  padding: 5% 6%;
+  border: 2px solid rgba(100, 60, 38, 0.12);
+  border-radius: 999px 999px 999px 3px;
+  color: #6f4734;
+  background: rgba(255, 252, 239, 0.94);
+  box-shadow: 0 4px 12px rgba(81, 52, 33, 0.09);
+  font-size: 5%;
+  white-space: nowrap;
+  animation: thought-float 2.3s ease-in-out infinite;
+}
+
+.hungry-fx .tummy-rumble {
+  bottom: 19%;
+  left: 47%;
+  color: #b27342;
+  font-size: 11%;
+  animation: tummy-rumble 0.55s ease-in-out infinite alternate;
+}
+
+.lonely-fx i {
+  top: 40%;
+  width: 6%;
+  aspect-ratio: 0.58;
+  border-radius: 70% 50% 65% 45%;
+  color: transparent;
+  background: linear-gradient(145deg, #bceafa, #63add4);
+  opacity: 0.86;
+  animation: tear-drop 1.7s ease-in infinite;
+}
+
+.lonely-fx i:first-child {
+  left: 37%;
+}
+
+.lonely-fx i:last-child {
+  right: 37%;
+  animation-delay: -0.55s;
+}
+
+.dirty-fx i:nth-child(1),
+.dirty-fx i:nth-child(2) {
+  width: 12%;
+  aspect-ratio: 1.6;
+  border-radius: 50%;
+  background: rgba(111, 76, 48, 0.42);
+  filter: blur(1px);
+}
+
+.dirty-fx i:nth-child(1) {
+  right: 28%;
+  bottom: 26%;
+  transform: rotate(-13deg);
+}
+
+.dirty-fx i:nth-child(2) {
+  bottom: 18%;
+  left: 27%;
+  transform: rotate(8deg);
+}
+
+.dirty-fx i:nth-child(3) {
+  top: 24%;
+  right: 8%;
+  color: rgba(91, 70, 55, 0.58);
+  font-size: 12%;
+  animation: stink-float 1.9s ease-in-out infinite;
+}
+
+.sleepy-fx i {
+  right: 4%;
+  color: #746b99;
+  text-shadow: 0 2px rgba(255, 255, 255, 0.7);
+  animation: z-float 2.2s ease-in-out infinite;
+}
+
+.sleepy-fx i:nth-child(1) {
+  top: 31%;
+  font-size: 7%;
+}
+
+.sleepy-fx i:nth-child(2) {
+  top: 18%;
+  right: 0;
+  font-size: 12%;
+  animation-delay: -0.75s;
+}
+
+.sleepy-fx i:nth-child(3) {
+  top: 9%;
+  right: 10%;
+  color: #f3cc62;
+  font-size: 7%;
+  animation-delay: -1.35s;
+}
+
+.critical-fx i:first-child {
+  top: 10%;
+  left: 4%;
+  width: 15%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  color: #fff;
+  background: #d85f6b;
+  box-shadow: 0 4px 12px rgba(126, 48, 57, 0.22);
+  font-size: 9%;
+  animation: critical-badge 0.8s ease-in-out infinite alternate;
+}
+
+.critical-fx i:nth-child(2) {
+  top: 32%;
+  right: 18%;
+  font-size: 9%;
+}
+
+.critical-fx i:nth-child(3) {
+  right: 29%;
+  bottom: 19%;
+  color: #ad6670;
+  font-size: 13%;
+  animation: tummy-rumble 0.7s ease-in-out infinite alternate;
+}
+
+.condition-hungry .mascot-sprite,
+.condition-sleepy .mascot-sprite {
+  filter: saturate(0.84) brightness(0.97);
+}
+
+.condition-lonely .mascot-sprite {
+  filter: saturate(0.72) brightness(0.98);
+  transform: translateY(2.5%);
+}
+
+.condition-dirty .mascot-sprite {
+  filter: sepia(0.12) saturate(0.82);
+}
+
+.condition-critical .mascot-sprite {
+  filter: saturate(0.58) brightness(0.91);
+}
+
+.condition-critical .mascot-rig {
+  animation: critical-sprite-sway 2.7s ease-in-out infinite;
+}
+
+.condition-radiant .mascot-rig {
+  animation-duration: 2.1s;
+}
+
+.action-feed .mascot-wrap,
+.mascot-action-feed {
+  animation: raster-happy-bob 0.38s 4 alternate ease-in-out;
+}
+
+.action-bath .mascot-wrap,
+.mascot-action-bath {
+  animation: raster-bath-wiggle 0.28s 5 alternate ease-in-out;
+}
+
+.action-play .mascot-wrap,
+.mascot-action-play {
+  animation: raster-jump 0.72s 2 ease-in-out;
+}
+
+.action-sleep .mascot-wrap,
+.mascot-action-sleep {
+  animation: raster-sleepy 1.8s ease-in-out both;
+}
+
+.action-gift .mascot-wrap,
+.action-level .mascot-wrap,
+.action-event .mascot-wrap,
+.action-baby .mascot-wrap,
+.mascot-action-gift,
+.mascot-action-level,
+.mascot-action-event,
+.mascot-action-baby {
+  animation: raster-celebration 0.52s 3 ease-in-out;
+}
+
+.closet-preview.mascot-preview {
+  height: 104px;
+  background:
+    radial-gradient(circle at 50% 27%, rgba(255, 255, 255, 0.92), transparent 38%),
+    linear-gradient(155deg, #fff4d6, #f0d9b4);
+  box-shadow: inset 0 0 0 1px rgba(91, 62, 35, 0.06);
+}
+
+.mascot-preview .purin-mascot {
+  width: 104px;
+  transform: translate(-4px, 0);
+}
+
+.outfit-grid button:has(.outfit-banana),
+.outfit-grid button:has(.outfit-pudding),
+.outfit-grid button:has(.outfit-sushi),
+.outfit-grid button:has(.outfit-ufo) {
+  background:
+    linear-gradient(135deg, rgba(144, 103, 178, 0.08), transparent 50%),
+    #fffdf8;
+}
+
+.item-badge {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  right: 8px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.item-badge.is-funny {
+  color: #fff;
+  background: linear-gradient(135deg, #8e70b1, #d7779a);
+  box-shadow: 0 3px 8px rgba(105, 65, 126, 0.18);
+}
+
+.outfit-banana .mascot-sprite,
+.outfit-pudding .mascot-sprite,
+.outfit-sushi .mascot-sprite,
+.outfit-ufo .mascot-sprite {
+  animation: funny-costume-bounce 2.9s ease-in-out infinite;
+}
+
+.baby-mascot {
+  width: 82px;
+}
+
+.baby-mascot .mascot-ground-shadow {
+  bottom: 9%;
+}
+
+.welcome-pet {
+  height: 132px;
+}
+
+/* New regular and deliberately silly locations */
+.scene-bakery {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.2) 50%, transparent 50%) 0 0 / 34px 34px,
+    linear-gradient(to bottom, #f7d7bd 0 69%, #d69a6c 69% 100%);
+}
+
+.scene-bakery::after {
+  right: 19px;
+  bottom: 52px;
+  width: 78px;
+  height: 62px;
+  border: 5px solid #9d6149;
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 34% 57%, #d29a4d 0 7px, transparent 8px),
+    radial-gradient(circle at 67% 57%, #d29a4d 0 7px, transparent 8px),
+    linear-gradient(#5f4036 0 59%, #f0c18e 60%);
+  box-shadow:
+    inset 0 0 0 4px rgba(255, 245, 219, 0.66),
+    0 -55px 0 -20px #fff2d7;
+}
+
+.scene-arcade {
+  background:
+    radial-gradient(circle at 15% 22%, #f8c9ff 0 2px, transparent 3px),
+    radial-gradient(circle at 68% 12%, #74e8f2 0 2px, transparent 3px),
+    linear-gradient(to bottom, #403a67 0 69%, #71688a 69% 100%);
+}
+
+.scene-arcade::after {
+  right: 17px;
+  bottom: 42px;
+  width: 72px;
+  height: 106px;
+  border: 5px solid #3f3157;
+  border-radius: 14px 14px 7px 7px;
+  background:
+    radial-gradient(circle at 50% 27%, #f6d862 0 13px, #8c7bd1 14px 28px, transparent 29px),
+    linear-gradient(to bottom, #ec7ca1 0 72%, #55bac7 72%);
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.22),
+    -88px 25px 0 -16px #685a83;
+}
+
+.scene-snow {
+  background:
+    radial-gradient(circle at 12% 18%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 35% 31%, #fff 0 3px, transparent 4px),
+    radial-gradient(circle at 71% 16%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 89% 35%, #fff 0 3px, transparent 4px),
+    linear-gradient(to bottom, #b8dce8 0 65%, #eef7f5 65% 100%);
+}
+
+.scene-snow::before {
+  height: 35%;
+  background:
+    radial-gradient(ellipse at 12% 110%, #fff 0 42%, transparent 43%),
+    radial-gradient(ellipse at 49% 120%, #f7fbfa 0 50%, transparent 51%),
+    radial-gradient(ellipse at 88% 108%, #fff 0 39%, transparent 40%);
+}
+
+.scene-snow::after {
+  right: 30px;
+  bottom: 44px;
+  width: 48px;
+  height: 72px;
+  border-radius: 50% 50% 40% 40%;
+  background:
+    radial-gradient(circle at 38% 24%, #4b3b35 0 3px, transparent 4px),
+    radial-gradient(circle at 62% 24%, #4b3b35 0 3px, transparent 4px),
+    linear-gradient(15deg, transparent 46%, #d78b44 47% 54%, transparent 55%) 17px 24px / 29px 12px no-repeat,
+    #fff;
+  box-shadow:
+    inset 0 0 0 2px rgba(102, 134, 148, 0.11),
+    0 -39px 0 -7px #fff;
+}
+
+.scene-puddingland {
+  background:
+    radial-gradient(circle at 83% 16%, #fff3bd 0 24px, transparent 25px),
+    radial-gradient(circle at 15% 20%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 53% 10%, #fff 0 2px, transparent 3px),
+    linear-gradient(to bottom, #9f8bc7 0 62%, #f2c85e 62% 100%);
+}
+
+.scene-puddingland::before {
+  height: 38%;
+  background:
+    radial-gradient(ellipse at 18% 38%, #6e452f 0 18%, transparent 19%),
+    radial-gradient(ellipse at 77% 64%, #8a5738 0 15%, transparent 16%),
+    repeating-radial-gradient(ellipse at 50% 0, #f9d974 0 20px, #edbd50 21px 41px);
+  animation: pudding-wobble 3.2s ease-in-out infinite;
+}
+
+.scene-puddingland::after {
+  right: 25px;
+  bottom: 50px;
+  width: 70px;
+  height: 58px;
+  border-radius: 48% 48% 17% 17%;
+  background:
+    linear-gradient(to bottom, #7f4c32 0 18%, #f6d66d 19% 82%, #e4b74d 83%);
+  box-shadow: 0 6px 0 rgba(98, 62, 39, 0.16);
+  transform: rotate(5deg);
+}
+
+.scene-upside {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.17) 0 2px, transparent 2px 31px),
+    linear-gradient(to bottom, #e9c4d4 0 69%, #9bc2b4 69% 100%);
+}
+
+.scene-upside::before {
+  top: 0;
+  right: 0;
+  bottom: auto;
+  left: 0;
+  height: 76px;
+  border-bottom: 8px solid rgba(92, 62, 48, 0.12);
+  background:
+    radial-gradient(ellipse at 19% -10%, #7e5d87 0 40px, transparent 41px),
+    radial-gradient(ellipse at 82% -5%, #e2aa67 0 34px, transparent 35px);
+}
+
+.scene-upside::after {
+  right: 26px;
+  bottom: 36px;
+  width: 84px;
+  height: 41px;
+  border-radius: 5px 5px 18px 18px;
+  background: #896b9c;
+  box-shadow:
+    0 -18px 0 -8px #654d77,
+    0 -30px 0 -17px #f0cf74;
+  transform: rotate(180deg);
+}
+
+.scene-bakery .window-scene,
+.scene-arcade .window-scene,
+.scene-snow .window-scene,
+.scene-puddingland .window-scene,
+.scene-upside .window-scene {
+  display: none;
+}
+
+.scene-arcade .speech-bubble,
+.scene-puddingland .speech-bubble {
+  color: #57446f;
+  background: rgba(255, 250, 242, 0.93);
+}
+
+.scene-upside .mascot-wrap {
+  animation: upside-hover 3.4s ease-in-out infinite;
+}
+
+.preview-bakery {
+  color: #9c6046;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.22) 50%, transparent 50%) 0 0 / 18px 18px,
+    linear-gradient(#f3d2ba 0 64%, #d0976d 64%);
+}
+
+.preview-arcade {
+  color: #ffdc67;
+  background:
+    radial-gradient(circle at 22% 22%, #f6a5c9 0 2px, transparent 3px),
+    linear-gradient(#433c69 0 66%, #71668b 66%);
+}
+
+.preview-snow {
+  color: #fff;
+  background:
+    radial-gradient(circle at 22% 30%, #fff 0 2px, transparent 3px),
+    linear-gradient(#b7dce7 0 61%, #eff8f6 61%);
+}
+
+.preview-puddingland {
+  color: #70452f;
+  background:
+    radial-gradient(circle at 78% 23%, #fff0ae 0 11px, transparent 12px),
+    linear-gradient(#9e8bc6 0 59%, #f1ca62 59%);
+}
+
+.preview-upside {
+  color: #fff0b0;
+  background:
+    radial-gradient(ellipse at 19% 0, #7e5d87 0 20px, transparent 21px),
+    linear-gradient(#e7c1d2 0 65%, #99c1b3 65%);
+}
+
+@keyframes mascot-sprite-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-1.4%) scale(1.012, 0.997);
+  }
+}
+
+@keyframes sprite-sparkle {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: rotate(-8deg) scale(0.65);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(10deg) scale(1.15);
+  }
+}
+
+@keyframes thought-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(1deg);
+  }
+  50% {
+    transform: translateY(-6%) rotate(-1deg);
+  }
+}
+
+@keyframes tummy-rumble {
+  from {
+    transform: translateX(-7%);
+  }
+  to {
+    transform: translateX(7%);
+  }
+}
+
+@keyframes tear-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-8%);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(75%);
+  }
+}
+
+@keyframes stink-float {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(9%) rotate(-8deg);
+  }
+  50% {
+    opacity: 0.72;
+    transform: translateY(-12%) rotate(8deg);
+  }
+}
+
+@keyframes z-float {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translate(0, 9%) scale(0.86);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-9%, -12%) scale(1.08);
+  }
+}
+
+@keyframes critical-badge {
+  from {
+    transform: rotate(-7deg) scale(0.94);
+  }
+  to {
+    transform: rotate(7deg) scale(1.08);
+  }
+}
+
+@keyframes critical-sprite-sway {
+  0%,
+  100% {
+    transform: translateY(2%) rotate(-1.2deg);
+  }
+  50% {
+    transform: translateY(3.5%) rotate(1.2deg);
+  }
+}
+
+@keyframes raster-happy-bob {
+  to {
+    transform: translateY(-5%) scale(1.025);
+  }
+}
+
+@keyframes raster-bath-wiggle {
+  to {
+    transform: rotate(2.4deg);
+  }
+}
+
+@keyframes raster-jump {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-15%) scale(0.98, 1.03);
+  }
+}
+
+@keyframes raster-sleepy {
+  to {
+    transform: translateY(4%) rotate(-2deg) scale(1.02, 0.97);
+  }
+}
+
+@keyframes raster-celebration {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  40% {
+    transform: translateY(-9%) rotate(-3deg);
+  }
+  70% {
+    transform: translateY(-4%) rotate(3deg);
+  }
+}
+
+@keyframes funny-costume-bounce {
+  0%,
+  100% {
+    transform: rotate(-0.7deg) translateY(0);
+  }
+  50% {
+    transform: rotate(0.7deg) translateY(-1.5%);
+  }
+}
+
+@keyframes pudding-wobble {
+  0%,
+  100% {
+    transform: skewX(0);
+  }
+  50% {
+    transform: skewX(1.2deg);
+  }
+}
+
+@keyframes upside-hover {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-0.5deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(0.5deg);
+  }
+}
+
+@keyframes stat-warning {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(212, 94, 105, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(212, 94, 105, 0.1);
+  }
+}
+
+@media (max-width: 430px) {
+  .pet-room {
+    min-height: 414px;
+  }
+
+  .pet-stage {
+    top: 112px;
+    transform: translateX(-50%) scale(0.94);
+  }
+
+  .closet-preview.mascot-preview {
+    height: 98px;
+  }
+}
+
+@media (max-width: 370px) {
+  .pet-room {
+    min-height: 386px;
+  }
+
+  .pet-stage {
+    top: 101px;
+    transform: translateX(-50%) scale(0.84);
+  }
+}
+
+@media (max-height: 760px) and (max-width: 699px) {
+  .pet-room {
+    min-height: 376px;
+  }
+
+  .pet-stage {
+    top: 96px;
+    transform: translateX(-50%) scale(0.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-rig,
+  .mascot-sprite,
+  .mascot-fx i,
+  .scene-puddingland::before,
+  .scene-upside .mascot-wrap,
+  .stat-card.is-critical {
+    animation: none !important;
   }
 }
