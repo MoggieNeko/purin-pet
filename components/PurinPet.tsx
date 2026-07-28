@@ -54,14 +54,77 @@ type MiniGameState = {
   time: number;
   score: number;
   finished: boolean;
+  playerX: number;
+  combo: number;
+  bestCombo: number;
+  lives: number;
+  feedback: string;
+  feedbackId: number;
+  items: MiniGameItem[];
+};
+
+type MiniGameItemKind = "pudding" | "berry" | "star" | "soap";
+
+type MiniGameItem = {
+  id: number;
+  kind: MiniGameItemKind;
   x: number;
   y: number;
+  speed: number;
+  spin: number;
 };
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
+
+const MINI_GAME_DURATION = 24;
+const MINI_GAME_ITEM_SCORE: Record<MiniGameItemKind, number> = {
+  pudding: 2,
+  berry: 3,
+  star: 5,
+  soap: -4,
+};
+
+const ACTION_DURATION: Record<string, number> = {
+  feed: 6500,
+  bath: 7200,
+  play: 6200,
+  sleep: 7800,
+  gift: 4200,
+  level: 4300,
+  event: 4200,
+  baby: 4800,
+};
+
+function makeMiniGameItem(id: number, firstWave = false): MiniGameItem {
+  const roll = Math.random();
+  const kind: MiniGameItemKind =
+    roll < 0.48
+      ? "pudding"
+      : roll < 0.73
+        ? "berry"
+        : roll < 0.87
+          ? "star"
+          : "soap";
+  return {
+    id,
+    kind,
+    x: 9 + Math.random() * 82,
+    y: firstWave ? -12 - Math.random() * 46 : -14,
+    speed: 0.82 + Math.random() * 0.58,
+    spin: -16 + Math.random() * 32,
+  };
+}
+
+function miniGameReward(score: number) {
+  return Math.min(75, 10 + Math.max(0, Math.floor(score * 0.75)));
+}
+
+function miniGameItemImagePath() {
+  return "./purin-game/game-items.webp";
+}
 
 function makeInitialState(now = Date.now()): GameState {
   return {
@@ -321,18 +384,23 @@ export function PurinPet() {
     useState<BeforeInstallPromptEvent | null>(null);
   const [miniGame, setMiniGame] = useState<MiniGameState>({
     open: false,
-    time: 10,
+    time: MINI_GAME_DURATION,
     score: 0,
     finished: false,
-    x: 48,
-    y: 45,
+    playerX: 50,
+    combo: 0,
+    bestCombo: 0,
+    lives: 3,
+    feedback: "",
+    feedbackId: 0,
+    items: [],
   });
 
   const actionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const importInput = useRef<HTMLInputElement | null>(null);
   const actionLock = useRef(false);
-  const lastCatchAt = useRef(0);
+  const miniGameItemId = useRef(1);
 
   const now = clock || game.lastUpdated || 0;
   const condition = useMemo(
@@ -531,10 +599,82 @@ export function PurinPet() {
   useEffect(() => {
     if (!miniGame.open || miniGame.time <= 0 || miniGame.finished) return;
     const timer = window.setTimeout(() => {
-      setMiniGame((current) => ({ ...current, time: current.time - 1 }));
+      setMiniGame((current) => ({
+        ...current,
+        time: Math.max(0, current.time - 1),
+      }));
     }, 1000);
     return () => window.clearTimeout(timer);
   }, [miniGame.open, miniGame.time, miniGame.finished]);
+
+  useEffect(() => {
+    if (!miniGame.open || miniGame.time <= 0 || miniGame.finished) return;
+    const gameLoop = window.setInterval(() => {
+      setMiniGame((current) => {
+        if (!current.open || current.finished || current.time <= 0) {
+          return current;
+        }
+
+        let score = current.score;
+        let combo = current.combo;
+        let bestCombo = current.bestCombo;
+        let lives = current.lives;
+        let feedback = "";
+        let feedbackId = current.feedbackId;
+        const items: MiniGameItem[] = [];
+
+        for (const item of current.items) {
+          const moved = { ...item, y: item.y + item.speed };
+          const inBasket =
+            moved.y >= 80 &&
+            moved.y <= 99 &&
+            Math.abs(moved.x - current.playerX) <= 12.5;
+
+          if (inBasket) {
+            feedbackId += 1;
+            if (moved.kind === "soap") {
+              lives = Math.max(0, lives - 1);
+              combo = 0;
+              score = Math.max(0, score + MINI_GAME_ITEM_SCORE.soap);
+              feedback = "撞到泡泡！-1 ♥";
+            } else {
+              combo += 1;
+              bestCombo = Math.max(bestCombo, combo);
+              const multiplier = combo >= 5 ? 2 : 1;
+              const points = MINI_GAME_ITEM_SCORE[moved.kind] * multiplier;
+              score += points;
+              feedback =
+                combo >= 5 ? `FEVER ×2　+${points}` : `接到！+${points}`;
+            }
+            continue;
+          }
+
+          if (moved.y > 108) {
+            if (moved.kind !== "soap") combo = 0;
+            continue;
+          }
+          items.push(moved);
+        }
+
+        if (items.length < 6 && Math.random() < 0.075) {
+          items.push(makeMiniGameItem(miniGameItemId.current++));
+        }
+
+        return {
+          ...current,
+          time: lives <= 0 ? 0 : current.time,
+          score,
+          combo,
+          bestCombo,
+          lives,
+          feedback,
+          feedbackId,
+          items,
+        };
+      });
+    }, 50);
+    return () => window.clearInterval(gameLoop);
+  }, [miniGame.finished, miniGame.open, miniGame.time]);
 
   useEffect(() => {
     if (
@@ -545,8 +685,8 @@ export function PurinPet() {
       return;
 
     const finishTimer = window.setTimeout(() => {
-      const countedScore = Math.min(miniGame.score, 20);
-      const reward = Math.min(35, countedScore * 2 + 5);
+      const countedScore = Math.max(0, miniGame.score);
+      const reward = miniGameReward(countedScore);
       setMiniGame((current) => ({ ...current, finished: true }));
       setGame((current) => {
         const rewarded = addRewards(
@@ -554,22 +694,22 @@ export function PurinPet() {
             ...current,
             stats: {
               ...current.stats,
-              happiness: clamp(current.stats.happiness + 12),
-              energy: clamp(current.stats.energy - 5),
+              happiness: clamp(current.stats.happiness + 15),
+              energy: clamp(current.stats.energy - 8),
             },
             totalActions: current.totalActions + 1,
             lastUpdated: Date.now(),
           },
-          8 + Math.min(countedScore, 12),
+          10 + Math.min(Math.floor(countedScore / 3), 18),
           reward,
-          4,
+          5 + Math.min(miniGame.bestCombo, 8),
         );
         return {
           ...rewarded.state,
           log: [
             {
               id: `${Date.now()}-game-${current.totalActions}`,
-              text: `接到 ${countedScore} 個布甸，賺咗 ${reward} 枚金幣`,
+              text: `甜品接接樂得到 ${countedScore} 分，最高 ${miniGame.bestCombo} Combo`,
               time: Date.now(),
             },
             ...rewarded.state.log,
@@ -578,7 +718,13 @@ export function PurinPet() {
       });
     }, 0);
     return () => window.clearTimeout(finishTimer);
-  }, [miniGame.finished, miniGame.open, miniGame.score, miniGame.time]);
+  }, [
+    miniGame.bestCombo,
+    miniGame.finished,
+    miniGame.open,
+    miniGame.score,
+    miniGame.time,
+  ]);
 
   const showToast = (text: string) => {
     setToast(text);
@@ -665,7 +811,12 @@ export function PurinPet() {
     }
   };
 
-  const animatePet = (nextAction: PetAction, nextSpeech: string) => {
+  const animatePet = (
+    nextAction: PetAction,
+    nextSpeech: string,
+    duration = ACTION_DURATION[nextAction] ?? 4200,
+  ) => {
+    actionLock.current = true;
     setAction(null);
     window.requestAnimationFrame(() => setAction(nextAction));
     setSpeech(nextSpeech);
@@ -674,7 +825,8 @@ export function PurinPet() {
       setAction(null);
       setSpeech(defaultPetMessage(game));
       actionLock.current = false;
-    }, 1900);
+    }, duration);
+    return duration;
   };
 
   const performAction = (careAction: CareAction) => {
@@ -749,14 +901,14 @@ export function PurinPet() {
     });
 
     playTone(careAction === "sleep" ? "soft" : "tap");
-    animatePet(careAction, nextMessage);
+    const careDuration = animatePet(careAction, nextMessage);
     showToast(`+${xpGain} XP・+${bondGain} 羈絆`);
     if (willLevel) {
       window.setTimeout(() => {
         playTone("reward");
         animatePet("level", "升級喇！有你照顧真係好幸福～");
         showToast("升級獎勵：20 枚金幣");
-      }, 350);
+      }, careDuration + 180);
     }
     if (eventId) {
       window.setTimeout(() => {
@@ -764,7 +916,7 @@ export function PurinPet() {
         setEventDisplayId(eventId);
         setEventOpen(true);
         setSpeech("咦？好似有啲事情發生緊！");
-      }, 1250);
+      }, careDuration + (willLevel ? ACTION_DURATION.level + 450 : 450));
     }
   };
 
@@ -835,29 +987,35 @@ export function PurinPet() {
         game: gameTime + 5 * 60_000,
       },
     }));
+    miniGameItemId.current = 4;
     setMiniGame({
       open: true,
-      time: 10,
+      time: MINI_GAME_DURATION,
       score: 0,
       finished: false,
-      x: 48,
-      y: 45,
+      playerX: 50,
+      combo: 0,
+      bestCombo: 0,
+      lives: 3,
+      feedback: "",
+      feedbackId: 0,
+      items: [
+        makeMiniGameItem(1, true),
+        makeMiniGameItem(2, true),
+        makeMiniGameItem(3, true),
+      ],
     });
     playTone("tap");
   };
 
-  const catchPudding = () => {
-    if (miniGame.time <= 0 || miniGame.finished) return;
-    const catchTime = Date.now();
-    if (catchTime - lastCatchAt.current < 170) return;
-    lastCatchAt.current = catchTime;
+  const moveMiniGameBasket = (clientX: number, field: HTMLElement) => {
+    if (miniGame.finished || miniGame.time <= 0) return;
+    const bounds = field.getBoundingClientRect();
+    const playerX = clamp(((clientX - bounds.left) / bounds.width) * 100, 8, 92);
     setMiniGame((current) => ({
       ...current,
-      score: current.score + 1,
-      x: 12 + Math.random() * 76,
-      y: 16 + Math.random() * 66,
+      playerX,
     }));
-    playTone("tap");
   };
 
   const finishWelcome = () => {
@@ -1700,6 +1858,46 @@ export function PurinPet() {
                   )}
                 </section>
 
+                <section
+                  className="growth-shape-gallery"
+                  aria-label="五個年齡嘅可愛身形變化"
+                >
+                  <header>
+                    <div>
+                      <p className="eyebrow">BODY EVOLUTION</p>
+                      <h3>由幼小到白髮都係佢</h3>
+                    </div>
+                    <span>5 種身形</span>
+                  </header>
+                  <div>
+                    {GROWTH_STAGES.map((stage, index) => (
+                      <article
+                        className={
+                          stage.id === currentGrowth.id ? "is-current" : ""
+                        }
+                        key={stage.id}
+                      >
+                        <span className="growth-shape-pet" aria-hidden="true">
+                          <PurinMascot
+                            outfit="soft"
+                            condition="content"
+                            name={stage.label}
+                            growthStage={stage.id}
+                          />
+                        </span>
+                        <strong>{stage.label}</strong>
+                        <small>
+                          {index <= growthStageIndex
+                            ? stage.id === currentGrowth.id
+                              ? "現在"
+                              : "回憶"
+                            : `Lv.${stage.minLevel}`}
+                        </small>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
                 <section className="growth-timeline" aria-label="五個成長階段">
                   {GROWTH_STAGES.map((stage, index) => {
                     const unlocked = index <= growthStageIndex;
@@ -2206,11 +2404,17 @@ export function PurinPet() {
             role="dialog"
             aria-modal
             aria-labelledby="mini-game-title"
+            style={
+              {
+                "--game-scene": `url("${sceneImagePath("garden")}")`,
+                "--game-items": `url("${miniGameItemImagePath()}")`,
+              } as CSSProperties
+            }
           >
             <header>
               <div>
-                <p className="eyebrow">10 秒小挑戰</p>
-                <h2 id="mini-game-title">接住啲布甸！</h2>
+                <p className="eyebrow">24 秒 · DRAG & CATCH</p>
+                <h2 id="mini-game-title">甜品接接樂</h2>
               </div>
               <button
                 className="close-button"
@@ -2227,38 +2431,123 @@ export function PurinPet() {
                 時間 <strong>{miniGame.time}s</strong>
               </span>
               <span>
-                接到 <strong>{miniGame.score}</strong>
+                分數 <strong>{miniGame.score}</strong>
+              </span>
+              <span className={miniGame.combo >= 5 ? "is-fever" : ""}>
+                Combo <strong>{miniGame.combo}</strong>
+              </span>
+              <span>
+                機會{" "}
+                <strong aria-label={`剩餘 ${miniGame.lives} 次機會`}>
+                  {"♥".repeat(miniGame.lives)}
+                  <i>{"♡".repeat(3 - miniGame.lives)}</i>
+                </strong>
               </span>
             </div>
-            <div className="game-field">
+            <div
+              className={`game-field dessert-catch-field ${
+                miniGame.combo >= 5 ? "is-fever" : ""
+              }`}
+              role="application"
+              tabIndex={0}
+              aria-label="拖動籃子接住甜品；亦可以用左右方向鍵控制"
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+                moveMiniGameBasket(event.clientX, event.currentTarget);
+              }}
+              onPointerMove={(event) => {
+                if (
+                  event.pointerType === "mouse" ||
+                  event.currentTarget.hasPointerCapture(event.pointerId)
+                ) {
+                  moveMiniGameBasket(event.clientX, event.currentTarget);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                  return;
+                }
+                event.preventDefault();
+                const movement = event.key === "ArrowLeft" ? -8 : 8;
+                setMiniGame((current) => ({
+                  ...current,
+                  playerX: clamp(current.playerX + movement, 8, 92),
+                }));
+              }}
+            >
               {!miniGame.finished ? (
-                <button
-                  className="pudding-target"
-                  onClick={catchPudding}
-                  style={
-                    {
-                      "--target-x": `${miniGame.x}%`,
-                      "--target-y": `${miniGame.y}%`,
-                    } as CSSProperties
-                  }
-                  aria-label="接住布甸"
-                >
-                  <span />
-                </button>
-              ) : (
-                <div className="game-result">
-                  <span className="result-pudding" aria-hidden="true">
-                    P
+                <>
+                  <div className="game-depth-layer game-clouds" aria-hidden="true" />
+                  <div className="game-depth-layer game-lights" aria-hidden="true" />
+                  {miniGame.items.map((item) => (
+                    <span
+                      className={`game-falling-item item-${item.kind}`}
+                      key={item.id}
+                      aria-hidden="true"
+                      style={
+                        {
+                          "--item-x": `${item.x}%`,
+                          "--item-y": `${item.y}%`,
+                          "--item-spin": `${item.spin}deg`,
+                        } as CSSProperties
+                      }
+                    >
+                      <i />
+                    </span>
+                  ))}
+                  <span
+                    className="dessert-basket"
+                    aria-hidden="true"
+                    style={
+                      {
+                        "--basket-x": `${miniGame.playerX}%`,
+                      } as CSSProperties
+                    }
+                  >
+                    <i className="basket-handle" />
+                    <i className="basket-lining" />
+                    <i className="basket-face" />
                   </span>
-                  <h3>好身手！</h3>
+                  {miniGame.feedback && (
+                    <span
+                      className={`game-feedback ${
+                        miniGame.feedback.includes("泡泡") ? "is-miss" : ""
+                      }`}
+                      key={miniGame.feedbackId}
+                      aria-live="polite"
+                    >
+                      {miniGame.feedback}
+                    </span>
+                  )}
+                  {miniGame.combo >= 5 && (
+                    <span className="fever-banner" aria-hidden="true">
+                      FEVER ×2
+                    </span>
+                  )}
+                  <div className="game-grass" />
+                </>
+              ) : (
+                <div className="game-result game-result-v5">
+                  <span className="result-pudding" aria-hidden="true">
+                    {miniGame.score >= 50 ? "★" : "P"}
+                  </span>
+                  <p className="eyebrow">最高 {miniGame.bestCombo} COMBO</p>
+                  <h3>
+                    {miniGame.score >= 50
+                      ? "甜品接接大師！"
+                      : miniGame.score >= 25
+                        ? "好身手！"
+                        : "下次一定接得更多！"}
+                  </h3>
+                  <div className="result-score">
+                    <strong>{miniGame.score}</strong>
+                    <span>分</span>
+                  </div>
                   <p>
-                    接到 {Math.min(miniGame.score, 20)} 個有效布甸
-                    <br />
                     賺咗{" "}
-                    <strong>
-                      {Math.min(35, Math.min(miniGame.score, 20) * 2 + 5)}
-                    </strong>{" "}
-                    枚金幣
+                    <strong>{miniGameReward(miniGame.score)}</strong> 枚金幣
+                    <br />
+                    星星同連續接中可以令分數升得更快。
                   </p>
                   <button
                     className="primary-button"
@@ -2270,12 +2559,27 @@ export function PurinPet() {
                   </button>
                 </div>
               )}
-              <div className="game-grass" />
             </div>
             {!miniGame.finished && (
-              <p className="game-hint">
-                每次成功後至少隔一小段時間先計下一個，亂撳唔會額外加分。
-              </p>
+              <div className="game-instructions">
+                <div className="game-legend" aria-label="遊戲物件說明">
+                  <span>
+                    <i className="legend-item item-pudding" /> +2
+                  </span>
+                  <span>
+                    <i className="legend-item item-berry" /> +3
+                  </span>
+                  <span>
+                    <i className="legend-item item-star" /> +5
+                  </span>
+                  <span>
+                    <i className="legend-item item-soap" /> 避開
+                  </span>
+                </div>
+                <p className="game-hint">
+                  手指左右拖動籃子；連續接中 5 個會進入 FEVER，得分 ×2。
+                </p>
+              </div>
             )}
           </section>
         </div>

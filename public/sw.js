@@ -1,4 +1,4 @@
-const CACHE_NAME = "purin-pet-v4";
+const CACHE_NAME = "purin-pet-v5";
 const APP_SHELL = [
   "./",
   "./manifest.webmanifest",
@@ -7,6 +7,9 @@ const APP_SHELL = [
   "./purin-sprites/adventure-outfits.webp",
   "./purin-sprites/fancy-outfits.webp",
   "./purin-sprites/funny-outfits.webp",
+  "./purin-poses/idle-poses.webp",
+  "./purin-poses/care-poses.webp",
+  "./purin-game/game-items.webp",
   "./purin-scenes/cozy.webp",
   "./purin-scenes/cafe.webp",
   "./purin-scenes/garden.webp",
