@@ -1632,6 +1632,7 @@ export function PurinPet() {
                 action={action}
                 name={game.petName}
                 growthStage={currentGrowth.id}
+                environment={game.selectedScene}
                 interactive
               />
             </div>
@@ -1646,6 +1647,7 @@ export function PurinPet() {
                   condition="content"
                   action={action === "baby" ? "baby" : null}
                   name={child.name}
+                  environment={game.selectedScene}
                   baby
                 />
               </div>
@@ -2006,6 +2008,7 @@ export function PurinPet() {
                             condition="content"
                             name={stage.label}
                             growthStage={stage.id}
+                            preview
                           />
                         </span>
                         <strong>{stage.label}</strong>

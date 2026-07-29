@@ -45,6 +45,8 @@ type PurinMascotProps = {
   baby?: boolean;
   growthStage?: GrowthStageId;
   interactive?: boolean;
+  environment?: string;
+  preview?: boolean;
 };
 
 type SpriteSheet = "core" | "adventure" | "fancy" | "funny";
@@ -86,6 +88,23 @@ type DrawMotion = {
   scaleX: number;
   scaleY: number;
 };
+
+type StageProfile = {
+  overall: number;
+  y: number;
+  rotation: number;
+  lean: number;
+  headWidth: number;
+  chestWidth: number;
+  bellyWidth: number;
+  hipWidth: number;
+  footWidth: number;
+  headHeight: number;
+  torsoHeight: number;
+  legHeight: number;
+};
+
+type PoseTransition = "steady" | "exit" | "enter";
 
 const SPRITES: Record<OutfitId, SpriteMeta> = {
   classic: { sheet: "core", column: 0, row: 0 },
@@ -129,21 +148,93 @@ const POSE_FILE: Record<PoseMeta["sheet"], string> = {
   care: "care-poses.webp",
 };
 
-const STAGE_SHAPE: Record<
-  GrowthStageId,
-  { overall: number; width: number; height: number; y: number; rotation: number }
-> = {
-  child: { overall: 0.9, width: 1.08, height: 0.88, y: 0.055, rotation: 0 },
-  teen: { overall: 0.97, width: 0.91, height: 1.055, y: 0.008, rotation: 0 },
-  adult: { overall: 1, width: 1, height: 1, y: 0, rotation: 0 },
-  middle: { overall: 1, width: 1.075, height: 0.975, y: 0.015, rotation: 0 },
-  senior: {
-    overall: 0.96,
-    width: 0.965,
-    height: 0.91,
-    y: 0.045,
-    rotation: -0.018,
+const STAGE_PROFILE: Record<GrowthStageId, StageProfile> = {
+  child: {
+    overall: 0.92,
+    y: 0.035,
+    rotation: 0,
+    lean: 0,
+    headWidth: 1.14,
+    chestWidth: 0.95,
+    bellyWidth: 0.91,
+    hipWidth: 0.92,
+    footWidth: 1.03,
+    headHeight: 1.13,
+    torsoHeight: 0.9,
+    legHeight: 0.9,
   },
+  teen: {
+    overall: 0.98,
+    y: 0.012,
+    rotation: -0.004,
+    lean: -0.006,
+    headWidth: 0.95,
+    chestWidth: 0.92,
+    bellyWidth: 0.86,
+    hipWidth: 0.9,
+    footWidth: 0.93,
+    headHeight: 0.95,
+    torsoHeight: 1.08,
+    legHeight: 1.06,
+  },
+  adult: {
+    overall: 1,
+    y: 0,
+    rotation: 0,
+    lean: 0,
+    headWidth: 1,
+    chestWidth: 1.035,
+    bellyWidth: 1,
+    hipWidth: 1,
+    footWidth: 1,
+    headHeight: 1,
+    torsoHeight: 1,
+    legHeight: 1,
+  },
+  middle: {
+    overall: 0.995,
+    y: 0.01,
+    rotation: 0.006,
+    lean: 0.004,
+    headWidth: 0.99,
+    chestWidth: 1.07,
+    bellyWidth: 1.13,
+    hipWidth: 1.09,
+    footWidth: 1.02,
+    headHeight: 0.98,
+    torsoHeight: 1.04,
+    legHeight: 0.97,
+  },
+  senior: {
+    overall: 0.94,
+    y: 0.035,
+    rotation: -0.024,
+    lean: -0.016,
+    headWidth: 1.06,
+    chestWidth: 0.93,
+    bellyWidth: 1.02,
+    hipWidth: 0.96,
+    footWidth: 0.9,
+    headHeight: 1.04,
+    torsoHeight: 0.94,
+    legHeight: 0.87,
+  },
+};
+
+const ENVIRONMENT_TINT: Record<string, string> = {
+  cozy: "rgba(255, 178, 82, 0.055)",
+  cafe: "rgba(255, 190, 126, 0.045)",
+  garden: "rgba(154, 213, 118, 0.035)",
+  camp: "rgba(255, 144, 54, 0.06)",
+  rainy: "rgba(111, 166, 211, 0.075)",
+  beach: "rgba(255, 218, 120, 0.045)",
+  moon: "rgba(101, 133, 218, 0.105)",
+  bakery: "rgba(255, 173, 116, 0.045)",
+  arcade: "rgba(195, 92, 221, 0.075)",
+  snow: "rgba(177, 219, 255, 0.075)",
+  puddingland: "rgba(255, 144, 190, 0.055)",
+  upside: "rgba(185, 132, 215, 0.055)",
+  neutral: "rgba(255, 205, 126, 0.018)",
 };
 
 const POSE_SCALE: Record<CinematicPose, number> = {
@@ -311,21 +402,141 @@ function motionFor(
   return motion;
 }
 
-function drawSoftMesh(
+function transitionMotionFor(
+  time: number,
+  transition: PoseTransition,
+  startedAt: number,
+): DrawMotion {
+  if (transition === "exit") {
+    const progress = Math.min(1, Math.max(0, (time - startedAt) / 130));
+    const eased = 1 - Math.pow(1 - progress, 2);
+    return {
+      x: 0,
+      y: 0.005 * eased,
+      rotation: 0,
+      scaleX: 1 + 0.018 * eased,
+      scaleY: 1 - 0.035 * eased,
+    };
+  }
+
+  if (transition === "enter") {
+    const progress = Math.min(1, Math.max(0, (time - startedAt) / 420));
+    const remaining = 1 - progress;
+    const settle = Math.sin(progress * Math.PI * 2.2) * remaining;
+    return {
+      x: 0,
+      y: 0.005 * remaining,
+      rotation: settle * 0.004,
+      scaleX: 1 - 0.018 * remaining + 0.007 * settle,
+      scaleY: 1 + 0.025 * remaining - 0.009 * settle,
+    };
+  }
+
+  return {
+    x: 0,
+    y: 0,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+  };
+}
+
+function gaussian(value: number, center: number, spread: number) {
+  return Math.exp(-Math.pow((value - center) / spread, 2));
+}
+
+function drawStageDetails(
+  context: CanvasRenderingContext2D,
+  stage: GrowthStageId,
+  drawSize: number,
+) {
+  if (stage !== "middle" && stage !== "senior") return;
+
+  const faceY = -drawSize * 0.135;
+  const lensX = drawSize * 0.098;
+  const lensRadius = drawSize * (stage === "senior" ? 0.052 : 0.048);
+
+  context.save();
+  context.globalCompositeOperation = "source-over";
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.lineWidth = Math.max(1.15, drawSize * 0.008);
+  context.strokeStyle =
+    stage === "senior"
+      ? "rgba(101, 68, 51, 0.82)"
+      : "rgba(91, 58, 43, 0.78)";
+
+  for (const direction of [-1, 1]) {
+    context.beginPath();
+    context.arc(direction * lensX, faceY, lensRadius, 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.beginPath();
+  context.moveTo(-lensX + lensRadius, faceY);
+  context.lineTo(lensX - lensRadius, faceY);
+  context.stroke();
+
+  if (stage === "senior") {
+    context.fillStyle = "rgba(247, 231, 197, 0.48)";
+    context.beginPath();
+    context.ellipse(
+      0,
+      -drawSize * 0.075,
+      drawSize * 0.09,
+      drawSize * 0.045,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    context.fill();
+
+    context.strokeStyle = "rgba(126, 83, 52, 0.88)";
+    context.lineWidth = Math.max(2, drawSize * 0.014);
+    context.beginPath();
+    context.moveTo(drawSize * 0.235, drawSize * 0.075);
+    context.quadraticCurveTo(
+      drawSize * 0.285,
+      drawSize * 0.035,
+      drawSize * 0.285,
+      drawSize * 0.11,
+    );
+    context.lineTo(drawSize * 0.27, drawSize * 0.34);
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawSculptedSprite(
   context: CanvasRenderingContext2D,
   image: HTMLImageElement,
   meta: SpriteMeta | PoseMeta,
   drawSize: number,
   time: number,
   animated: boolean,
+  stage: GrowthStageId,
+  environment: string,
 ) {
   const sourceWidth = image.naturalWidth / 2;
   const sourceHeight = image.naturalHeight / 2;
-  const slices = 30;
+  const slices = 36;
   const sourceSlice = sourceHeight / slices;
-  const destinationSlice = drawSize / slices;
+  const profile = STAGE_PROFILE[stage];
   const breathe = animated ? Math.sin(time * 0.00165) : 0;
   const settle = animated ? Math.sin(time * 0.00082 + 0.7) : 0;
+  const verticalWeights = Array.from({ length: slices }, (_, index) => {
+    const middle = (index + 0.5) / slices;
+    return (
+      1 +
+      (profile.headHeight - 1) * gaussian(middle, 0.35, 0.22) +
+      (profile.torsoHeight - 1) * gaussian(middle, 0.64, 0.23) +
+      (profile.legHeight - 1) * gaussian(middle, 0.84, 0.12)
+    );
+  });
+  const totalVerticalWeight = verticalWeights.reduce(
+    (total, weight) => total + weight,
+    0,
+  );
+  let destinationTop = -drawSize / 2;
 
   for (let index = 0; index < slices; index += 1) {
     const middle = (index + 0.5) / slices;
@@ -337,25 +548,34 @@ function drawSoftMesh(
     const sourceDrawHeight =
       sourceSlice + sourceOverlapTop + sourceOverlapBottom;
 
-    const headInfluence = Math.exp(-Math.pow((middle - 0.34) / 0.22, 2));
-    const chestInfluence = Math.exp(-Math.pow((middle - 0.62) / 0.25, 2));
-    const footInfluence = Math.exp(-Math.pow((middle - 0.82) / 0.13, 2));
-    const localWidth =
+    const headInfluence = gaussian(middle, 0.35, 0.21);
+    const chestInfluence = gaussian(middle, 0.53, 0.16);
+    const bellyInfluence = gaussian(middle, 0.67, 0.18);
+    const hipInfluence = gaussian(middle, 0.77, 0.14);
+    const footInfluence = gaussian(middle, 0.86, 0.1);
+    const silhouetteWidth =
       1 +
+      (profile.headWidth - 1) * headInfluence +
+      (profile.chestWidth - 1) * chestInfluence +
+      (profile.bellyWidth - 1) * bellyInfluence +
+      (profile.hipWidth - 1) * hipInfluence +
+      (profile.footWidth - 1) * footInfluence;
+    const localWidth =
+      silhouetteWidth +
       breathe * 0.006 * chestInfluence -
       breathe * 0.0025 * headInfluence;
     const localShift =
       drawSize *
-      (settle * 0.0028 * headInfluence -
+      (profile.lean * (0.5 - middle) +
+        settle * 0.0028 * headInfluence -
         settle * 0.0012 * footInfluence);
     const localLift =
       drawSize * breathe * 0.0018 * (headInfluence - footInfluence);
     const destinationWidth = drawSize * localWidth;
+    const destinationSlice =
+      (drawSize * verticalWeights[index]) / totalVerticalWeight;
     const destinationY =
-      -drawSize / 2 +
-      index * destinationSlice -
-      (index === 0 ? 0 : 0.7) +
-      localLift;
+      destinationTop - (index === 0 ? 0 : 0.7) + localLift;
     const destinationHeight =
       destinationSlice +
       (index === 0 || index === slices - 1 ? 0.7 : 1.4);
@@ -371,6 +591,23 @@ function drawSoftMesh(
       destinationWidth,
       destinationHeight,
     );
+    destinationTop += destinationSlice;
+  }
+
+  const environmentTint =
+    ENVIRONMENT_TINT[environment] ?? ENVIRONMENT_TINT.neutral;
+  context.save();
+  context.globalCompositeOperation = "source-atop";
+  context.fillStyle = environmentTint;
+  context.fillRect(
+    -drawSize * 0.58,
+    -drawSize * 0.58,
+    drawSize * 1.16,
+    drawSize * 1.16,
+  );
+  context.restore();
+  if (meta.sheet !== "idle" && meta.sheet !== "care") {
+    drawStageDetails(context, stage, drawSize);
   }
 }
 
@@ -378,7 +615,7 @@ function ConditionEffects({ condition }: { condition: PetCondition }) {
   if (condition === "radiant") {
     return (
       <span className="mascot-fx radiant-fx" aria-hidden="true">
-        <i>✦</i><i>✧</i><i>✦</i><i>♡</i>
+        <i>✦</i><i>✧</i><i>✦</i><i>·</i>
       </span>
     );
   }
@@ -428,18 +665,29 @@ export function PurinMascot({
   baby = false,
   growthStage = "adult",
   interactive = false,
+  environment = "neutral",
+  preview = false,
 }: PurinMascotProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const petTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const poseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const poseTransitionStarted = useRef(0);
   const [idlePose, setIdlePose] = useState<IdlePose>("breathe");
   const [petted, setPetted] = useState(false);
+  const [touchPulse, setTouchPulse] = useState(0);
   const effectiveStage = baby ? "child" : growthStage;
   const sprite = SPRITES[outfit];
-  const cinematicPose =
+  const desiredCinematicPose =
     interactive && !baby
       ? cinematicPoseFor(action, condition, idlePose)
       : null;
-  const poseMeta = cinematicPose ? POSES[cinematicPose] : null;
+  const [renderPose, setRenderPose] = useState<CinematicPose | null>(
+    desiredCinematicPose,
+  );
+  const renderPoseRef = useRef<CinematicPose | null>(desiredCinematicPose);
+  const [poseTransition, setPoseTransition] =
+    useState<PoseTransition>("steady");
+  const poseMeta = renderPose ? POSES[renderPose] : null;
 
   useEffect(() => {
     if (!interactive || action) return;
@@ -454,9 +702,36 @@ export function PurinMascot({
   useEffect(
     () => () => {
       if (petTimer.current) clearTimeout(petTimer.current);
+      if (poseTimer.current) clearTimeout(poseTimer.current);
     },
     [],
   );
+
+  useEffect(() => {
+    if (!interactive) return;
+    void Promise.all([
+      loadCanvasImage(petAssetPath("purin-poses", POSE_FILE.idle)),
+      loadCanvasImage(petAssetPath("purin-poses", POSE_FILE.care)),
+    ]).catch(() => {
+      // Preloading is optional; the base pose can still render.
+    });
+  }, [interactive]);
+
+  useEffect(() => {
+    if (desiredCinematicPose === renderPoseRef.current) return;
+    if (poseTimer.current) clearTimeout(poseTimer.current);
+    poseTransitionStarted.current = performance.now();
+    setPoseTransition("exit");
+    poseTimer.current = setTimeout(() => {
+      renderPoseRef.current = desiredCinematicPose;
+      setRenderPose(desiredCinematicPose);
+      poseTransitionStarted.current = performance.now();
+      setPoseTransition("enter");
+      poseTimer.current = setTimeout(() => {
+        setPoseTransition("steady");
+      }, 420);
+    }, 130);
+  }, [desiredCinematicPose]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -471,16 +746,6 @@ export function PurinMascot({
     let width = 0;
     let height = 0;
     let pixelRatio = 1;
-    let transitionStarted = 0;
-    const previousFrame = document.createElement("canvas");
-    previousFrame.width = canvas.width;
-    previousFrame.height = canvas.height;
-    const previousContext = previousFrame.getContext("2d");
-    const hasPreviousFrame =
-      canvas.width > 1 && canvas.height > 1 && Boolean(previousContext);
-    if (hasPreviousFrame) {
-      previousContext?.drawImage(canvas, 0, 0);
-    }
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -495,58 +760,44 @@ export function PurinMascot({
       context.imageSmoothingQuality = "high";
 
       const activeImage =
-        cinematicPose && cinematicImage ? cinematicImage : baseImage;
+        renderPose && cinematicImage ? cinematicImage : baseImage;
       const activeMeta =
-        cinematicPose && poseMeta ? poseMeta : sprite;
-      const shape = STAGE_SHAPE[effectiveStage];
+        renderPose && poseMeta ? poseMeta : sprite;
+      const profile = STAGE_PROFILE[effectiveStage];
       const motion = motionFor(time, action, condition, idlePose, petted);
-      const poseScale = cinematicPose ? POSE_SCALE[cinematicPose] : 1;
+      const transitionMotion = transitionMotionFor(
+        time,
+        prefersReducedMotion ? "steady" : poseTransition,
+        poseTransitionStarted.current,
+      );
+      const poseScale = renderPose ? POSE_SCALE[renderPose] : 1;
       const drawSize =
-        Math.min(width, height) * 1.075 * shape.overall * poseScale;
-      const transitionProgress =
-        !shouldAnimate || !hasPreviousFrame
-          ? 1
-          : Math.min(1, Math.max(0, (time - transitionStarted) / 520));
+        Math.min(width, height) * 1.075 * profile.overall * poseScale;
 
       context.save();
-      context.globalAlpha =
-        (condition === "critical" ? 0.9 : 1) * transitionProgress;
+      context.globalAlpha = condition === "critical" ? 0.9 : 1;
       context.translate(
-        width * (0.5 + motion.x),
-        height * (0.5 + shape.y + motion.y),
+        width * (0.5 + motion.x + transitionMotion.x),
+        height * (0.5 + profile.y + motion.y + transitionMotion.y),
       );
-      context.rotate(shape.rotation + motion.rotation);
+      context.rotate(
+        profile.rotation + motion.rotation + transitionMotion.rotation,
+      );
       context.scale(
-        shape.width * motion.scaleX,
-        shape.height * motion.scaleY,
+        motion.scaleX * transitionMotion.scaleX,
+        motion.scaleY * transitionMotion.scaleY,
       );
-      drawSoftMesh(
+      drawSculptedSprite(
         context,
         activeImage,
         activeMeta,
         drawSize,
         time,
         shouldAnimate,
+        effectiveStage,
+        environment,
       );
       context.restore();
-
-      if (hasPreviousFrame && transitionProgress < 1) {
-        context.save();
-        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-        context.globalAlpha = 1 - transitionProgress;
-        context.drawImage(
-          previousFrame,
-          0,
-          0,
-          previousFrame.width,
-          previousFrame.height,
-          0,
-          0,
-          width,
-          height,
-        );
-        context.restore();
-      }
     };
 
     const resize = () => {
@@ -583,7 +834,6 @@ export function PurinMascot({
         if (cancelled) return;
         baseImage = loadedBase;
         cinematicImage = loadedCinematic;
-        transitionStarted = performance.now();
         resize();
         if (shouldAnimate) {
           animationFrame = window.requestAnimationFrame(loop);
@@ -606,26 +856,48 @@ export function PurinMascot({
     };
   }, [
     action,
-    cinematicPose,
     condition,
     effectiveStage,
+    environment,
     idlePose,
     interactive,
     outfit,
     petted,
     poseMeta,
+    poseTransition,
+    renderPose,
     sprite,
   ]);
 
-  const reactToPet = () => {
+  const reactToPet = (
+    target?: HTMLElement,
+    clientX?: number,
+    clientY?: number,
+  ) => {
     if (!interactive || action) return;
+    if (
+      target &&
+      typeof clientX === "number" &&
+      typeof clientY === "number"
+    ) {
+      const bounds = target.getBoundingClientRect();
+      target.style.setProperty(
+        "--pet-touch-x",
+        `${((clientX - bounds.left) / bounds.width) * 100}%`,
+      );
+      target.style.setProperty(
+        "--pet-touch-y",
+        `${((clientY - bounds.top) / bounds.height) * 100}%`,
+      );
+    }
     if (petTimer.current) clearTimeout(petTimer.current);
     setPetted(true);
+    setTouchPulse((current) => current + 1);
     setIdlePose("delighted");
     petTimer.current = setTimeout(() => {
       setPetted(false);
       setIdlePose("breathe");
-    }, 1800);
+    }, 900);
   };
 
   return (
@@ -634,7 +906,9 @@ export function PurinMascot({
         baby ? "is-baby" : ""
       } ${interactive ? "is-interactive" : ""} ${
         petted ? "is-petted" : ""
-      } ${cinematicPose ? `has-cinematic-pose pose-${cinematicPose}` : ""}`}
+      } ${preview ? "is-growth-preview" : ""} ${
+        renderPose ? `has-cinematic-pose pose-${renderPose}` : ""
+      } pose-transition-${poseTransition}`}
       role={interactive ? "button" : "img"}
       tabIndex={interactive ? 0 : undefined}
       aria-label={
@@ -656,30 +930,37 @@ export function PurinMascot({
         event.currentTarget.style.setProperty("--pet-tilt-x", "0deg");
         event.currentTarget.style.setProperty("--pet-tilt-y", "0deg");
       }}
-      onPointerDown={reactToPet}
+      onPointerDown={(event) =>
+        reactToPet(
+          event.currentTarget,
+          event.clientX,
+          event.clientY,
+        )
+      }
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          reactToPet();
+          reactToPet(event.currentTarget);
         }
       }}
     >
       <span className="mascot-stage-shell">
         <span className={`mascot-rig mascot-action-${action ?? "idle"}`}>
           <span className="mascot-ground-shadow" aria-hidden="true" />
+          <span className="mascot-environment-glow" aria-hidden="true" />
           <canvas ref={canvasRef} className="mascot-canvas" aria-hidden="true" />
           <span className="mascot-depth-glow" aria-hidden="true" />
-          <span className="growth-details" aria-hidden="true">
-            <i className="age-glasses" />
-            <i className="age-muzzle" />
-            <i className="age-cane" />
-          </span>
           <span className="care-action-fx" aria-hidden="true">
             <i /><i /><i /><i />
           </span>
           <ConditionEffects condition={condition} />
-          <span className="petting-hearts" aria-hidden="true">
-            <i>♥</i><i>♡</i><i>♥</i>
+          <span
+            className="petting-response"
+            aria-hidden="true"
+            key={touchPulse}
+          >
+            <i className="touch-ripple" />
+            <i className="touch-sparkle">✦</i>
           </span>
           {action && ACTION_COPY[action] && (
             <span className="mascot-action-caption" aria-hidden="true">
