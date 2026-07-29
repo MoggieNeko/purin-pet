@@ -21,6 +21,7 @@ import {
   EVENT_COOLDOWN_MS,
   FAMILY_BIRTH_GAP_MS,
   FAMILY_WAIT_MS,
+  GROWTH_STAGE_RULES,
   GROWTH_STAGES,
   OUTFITS,
   RANDOM_EVENTS,
@@ -35,9 +36,11 @@ import {
   daysTogether,
   formatCountdown,
   growthStageFor,
+  growthStageRulesFor,
   localDateKey,
   nextGrowthStage,
   statStateLabel,
+  stageAdjustedStatDelta,
   xpRequired,
   type CareAction,
   type ChildPet,
@@ -274,12 +277,25 @@ function applyTimeDecay(state: GameState, now = Date.now()): GameState {
     Math.max(0, (now - state.lastUpdated) / 60_000),
   );
   if (elapsedMinutes < 5) return state;
+  const rules = growthStageRulesFor(state.level, state.createdAt, now);
 
   const nextStats = {
-    fullness: clamp(state.stats.fullness - elapsedMinutes / 12),
-    happiness: clamp(state.stats.happiness - elapsedMinutes / 22),
-    cleanliness: clamp(state.stats.cleanliness - elapsedMinutes / 18),
-    energy: clamp(state.stats.energy - elapsedMinutes / 15),
+    fullness: clamp(
+      state.stats.fullness -
+        (elapsedMinutes / 12) * rules.decay.fullness,
+    ),
+    happiness: clamp(
+      state.stats.happiness -
+        (elapsedMinutes / 22) * rules.decay.happiness,
+    ),
+    cleanliness: clamp(
+      state.stats.cleanliness -
+        (elapsedMinutes / 18) * rules.decay.cleanliness,
+    ),
+    energy: clamp(
+      state.stats.energy -
+        (elapsedMinutes / 15) * rules.decay.energy,
+    ),
   };
 
   return { ...state, stats: nextStats, lastUpdated: now };
@@ -434,6 +450,13 @@ export function PurinPet() {
       ),
     [game.createdAt, game.level, now],
   );
+  const currentGrowthRules = GROWTH_STAGE_RULES[currentGrowth.id];
+  const miniGameEnergyMinimum = Math.max(
+    20,
+    currentGrowthRules.playEnergyMinimum - 4,
+  );
+  const miniGameFullnessMinimum =
+    currentGrowthRules.playFullnessMinimum;
   const upcomingGrowth = useMemo(
     () => nextGrowthStage(currentGrowth.id),
     [currentGrowth.id],
@@ -733,20 +756,38 @@ export function PurinPet() {
       const reward = miniGameReward(countedScore);
       setMiniGame((current) => ({ ...current, finished: true }));
       setGame((current) => {
+        const rewardTime = Date.now();
+        const stage = growthStageFor(
+          current.level,
+          current.createdAt,
+          rewardTime,
+        ).id;
+        const stageRules = GROWTH_STAGE_RULES[stage];
         const rewarded = addRewards(
           {
             ...current,
             stats: {
               ...current.stats,
-              happiness: clamp(current.stats.happiness + 15),
-              energy: clamp(current.stats.energy - 8),
+              happiness: clamp(
+                current.stats.happiness +
+                  stageAdjustedStatDelta(stage, 15, "play"),
+              ),
+              energy: clamp(
+                current.stats.energy +
+                  stageAdjustedStatDelta(stage, -8, "play"),
+              ),
             },
             totalActions: current.totalActions + 1,
-            lastUpdated: Date.now(),
+            lastUpdated: rewardTime,
           },
-          10 + Math.min(Math.floor(countedScore / 3), 18),
+          Math.round(
+            (10 + Math.min(Math.floor(countedScore / 3), 18)) *
+              stageRules.xp,
+          ),
           reward,
-          5 + Math.min(miniGame.bestCombo, 8),
+          Math.round(
+            (5 + Math.min(miniGame.bestCombo, 8)) * stageRules.bond,
+          ),
         );
         return {
           ...rewarded.state,
@@ -896,9 +937,15 @@ export function PurinPet() {
       effect.message[game.totalActions % effect.message.length];
     const need = Math.max(0, 100 - game.stats[effect.target]) / 100;
     const rewardFactor = Math.max(0.55, Math.min(1.15, 0.45 + need));
-    const xpGain = Math.max(3, Math.round(effect.xp * rewardFactor));
+    const xpGain = Math.max(
+      3,
+      Math.round(effect.xp * rewardFactor * currentGrowthRules.xp),
+    );
     const coinGain = Math.max(1, Math.round(effect.coins * rewardFactor));
-    const bondGain = Math.max(2, Math.round(effect.bond * rewardFactor));
+    const bondGain = Math.max(
+      2,
+      Math.round(effect.bond * rewardFactor * currentGrowthRules.bond),
+    );
     const willLevel = game.xp + xpGain >= xpRequired(game.level);
     const eventId = chooseEvent(
       { ...game, totalActions: game.totalActions + 1 },
@@ -908,11 +955,20 @@ export function PurinPet() {
     setGame((current) => {
       const checked = actionAvailability(current, careAction, actionTime);
       if (!checked.ready) return current;
+      const stage = growthStageFor(
+        current.level,
+        current.createdAt,
+        actionTime,
+      ).id;
+      const stageRules = GROWTH_STAGE_RULES[stage];
       const nextStats = { ...current.stats };
       for (const [key, amount] of Object.entries(effect.stats) as Array<
         [StatKey, number]
       >) {
-        nextStats[key] = clamp(nextStats[key] + amount);
+        nextStats[key] = clamp(
+          nextStats[key] +
+            stageAdjustedStatDelta(stage, amount, careAction),
+        );
       }
 
       const rewarded = addRewards(
@@ -921,7 +977,8 @@ export function PurinPet() {
           stats: nextStats,
           cooldowns: {
             ...current.cooldowns,
-            [careAction]: actionTime + effect.cooldown,
+            [careAction]:
+              actionTime + Math.round(effect.cooldown * stageRules.cooldown),
           },
           totalActions: current.totalActions + 1,
           lastUpdated: actionTime,
@@ -1019,7 +1076,10 @@ export function PurinPet() {
       showToast(`小遊戲要休息，仲有 ${formatCountdown(remaining)}`);
       return;
     }
-    if (game.stats.energy < 20 || game.stats.fullness < 15) {
+    if (
+      game.stats.energy < miniGameEnergyMinimum ||
+      game.stats.fullness < miniGameFullnessMinimum
+    ) {
       showToast("要先食飽同休息好，先有力玩小遊戲");
       setSpeech("我而家冇乜力，照顧我先吖…");
       return;
@@ -1239,11 +1299,19 @@ export function PurinPet() {
     const eventTime = clock || game.lastUpdated;
     setGame((current) => {
       if (current.pendingEventId !== activeEvent.id) return current;
+      const stage = growthStageFor(
+        current.level,
+        current.createdAt,
+        eventTime,
+      ).id;
+      const stageRules = GROWTH_STAGE_RULES[stage];
       const nextStats = { ...current.stats };
       for (const [key, amount] of Object.entries(
         choice.effects.stats ?? {},
       ) as Array<[StatKey, number]>) {
-        nextStats[key] = clamp(nextStats[key] + amount);
+        nextStats[key] = clamp(
+          nextStats[key] + stageAdjustedStatDelta(stage, amount),
+        );
       }
       const rewarded = addRewards(
         {
@@ -1254,9 +1322,9 @@ export function PurinPet() {
           lastEventAt: eventTime,
           lastUpdated: eventTime,
         },
-        choice.effects.xp,
+        Math.round(choice.effects.xp * stageRules.xp),
         choice.effects.coins,
-        choice.effects.bond,
+        Math.round(choice.effects.bond * stageRules.bond),
       );
       return {
         ...rewarded.state,
@@ -1337,7 +1405,17 @@ export function PurinPet() {
         bond: current.bond + 30,
         stats: {
           ...current.stats,
-          happiness: clamp(current.stats.happiness + 20),
+          happiness: clamp(
+            current.stats.happiness +
+              stageAdjustedStatDelta(
+                growthStageFor(
+                  current.level,
+                  current.createdAt,
+                  birthTime,
+                ).id,
+                20,
+              ),
+          ),
         },
         log: [
           {
@@ -1740,13 +1818,13 @@ export function PurinPet() {
             aria-label="打開接布甸小遊戲"
             disabled={
               gameCooldown > 0 ||
-              game.stats.energy < 20 ||
-              game.stats.fullness < 15
+              game.stats.energy < miniGameEnergyMinimum ||
+              game.stats.fullness < miniGameFullnessMinimum
             }
             className={
               gameCooldown > 0 ||
-              game.stats.energy < 20 ||
-              game.stats.fullness < 15
+              game.stats.energy < miniGameEnergyMinimum ||
+              game.stats.fullness < miniGameFullnessMinimum
                 ? "is-unavailable"
                 : ""
             }
@@ -1758,7 +1836,8 @@ export function PurinPet() {
             <small>
               {gameCooldown > 0
                 ? formatCountdown(gameCooldown)
-                : game.stats.energy < 20 || game.stats.fullness < 15
+                : game.stats.energy < miniGameEnergyMinimum ||
+                    game.stats.fullness < miniGameFullnessMinimum
                   ? "未夠力"
                   : "可以玩"}
             </small>
@@ -1903,6 +1982,7 @@ export function PurinPet() {
                       condition={condition}
                       name={game.petName}
                       growthStage={currentGrowth.id}
+                      showStageDesign
                     />
                   </div>
                   <div className="growth-hero-copy">
@@ -1984,6 +2064,28 @@ export function PurinPet() {
                 </section>
 
                 <section
+                  className={`growth-mechanics-card stage-rules-${currentGrowth.id}`}
+                  aria-label={`${currentGrowth.label}狀態變化規則`}
+                >
+                  <header>
+                    <div>
+                      <p className="eyebrow">AGE EFFECT</p>
+                      <h3>{currentGrowthRules.headline}</h3>
+                    </div>
+                    <span>{currentGrowth.shortLabel}倍率</span>
+                  </header>
+                  <div className="growth-mechanics-chips">
+                    {currentGrowthRules.notes.map((note) => (
+                      <span key={note}>{note}</span>
+                    ))}
+                  </div>
+                  <p>
+                    年齡會同時影響自然下降、照顧回復、活動消耗、
+                    冷卻時間、經驗同羈絆；所有倍率已即時套用。
+                  </p>
+                </section>
+
+                <section
                   className="growth-shape-gallery"
                   aria-label="五個年齡嘅可愛身形變化"
                 >
@@ -2012,6 +2114,7 @@ export function PurinPet() {
                           />
                         </span>
                         <strong>{stage.label}</strong>
+                        <em>{stage.appearance}</em>
                         <small>
                           {index <= growthStageIndex
                             ? stage.id === currentGrowth.id
@@ -2050,6 +2153,9 @@ export function PurinPet() {
                             </small>
                           </header>
                           <p>{stage.description}</p>
+                          <small className="growth-stage-effect">
+                            {GROWTH_STAGE_RULES[stage.id].headline}
+                          </small>
                         </div>
                       </article>
                     );

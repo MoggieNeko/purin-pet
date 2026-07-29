@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const developmentPreviewMeta =
@@ -30,4 +31,27 @@ test("renders development preview metadata", async () => {
     /^text\/html\b/i,
   );
   assert.match(await response.text(), developmentPreviewMeta);
+});
+
+test("uses independent stage artwork without the old slice renderer", async () => {
+  const mascotSource = await readFile(
+    new URL("../components/PurinMascot.tsx", import.meta.url),
+    "utf8",
+  );
+  const gameSource = await readFile(
+    new URL("../components/purinGame.ts", import.meta.url),
+    "utf8",
+  );
+  const serviceWorker = await readFile(
+    new URL("../public/sw.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.doesNotMatch(mascotSource, /drawSculptedSprite|const slices\s*=/);
+  for (const stage of ["child", "teen", "adult", "middle", "senior"]) {
+    assert.match(mascotSource, new RegExp(`${stage}: "${stage}\\.png"`));
+    assert.match(serviceWorker, new RegExp(`purin-stages/${stage}\\.png`));
+  }
+  assert.match(gameSource, /GROWTH_STAGE_RULES/);
+  assert.match(gameSource, /stageAdjustedStatDelta/);
 });

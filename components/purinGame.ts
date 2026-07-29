@@ -115,6 +115,23 @@ export type GrowthStageMeta = {
   minDays: number;
   description: string;
   personality: string;
+  appearance: string;
+};
+
+export type GrowthStageRules = {
+  decay: Record<StatKey, number>;
+  careGain: Record<CareAction, number>;
+  careCost: number;
+  cooldown: number;
+  xp: number;
+  bond: number;
+  eventPositive: number;
+  eventNegative: number;
+  playEnergyMinimum: number;
+  playFullnessMinimum: number;
+  sleepFullnessMinimum: number;
+  headline: string;
+  notes: [string, string, string];
 };
 
 export const DEFAULT_NOTE = "今日都要記住，有人好鍾意你 ♡";
@@ -132,8 +149,9 @@ export const GROWTH_STAGES: GrowthStageMeta[] = [
     icon: "●",
     minLevel: 1,
     minDays: 1,
-    description: "身形細細、頭仔圓圓，對每樣嘢都充滿好奇。",
-    personality: "最鍾意被輕撫，同你一齊探索屋企。",
+    description: "全階段最細粒，寶寶比例、圓頭短手腳，嘴上仲有奶嘴。",
+    personality: "需要密啲照顧，但每次陪伴都會建立更多安全感。",
+    appearance: "奶嘴、口水肩、圓圓寶寶臉",
   },
   {
     id: "teen",
@@ -142,8 +160,9 @@ export const GROWTH_STAGES: GrowthStageMeta[] = [
     icon: "✦",
     minLevel: 5,
     minDays: 3,
-    description: "耳仔更有精神，動作變得活潑，開始有自己喜好。",
-    personality: "特別貪玩，完成玩耍後會有更誇張嘅開心反應。",
+    description: "比幼年高大少少，身形輕巧，眼神同耳仔都充滿活力。",
+    personality: "新陳代謝最快、特別貪玩，玩耍回復亦係五階段最高。",
+    appearance: "修長少少、精神大眼、準備起跑",
   },
   {
     id: "adult",
@@ -152,8 +171,9 @@ export const GROWTH_STAGES: GrowthStageMeta[] = [
     icon: "◆",
     minLevel: 12,
     minDays: 10,
-    description: "身形最飽滿有力，亦開始懂得好好照顧身邊嘅人。",
-    personality: "狀態穩定，係建立家庭前最重要嘅成長階段。",
+    description: "最經典、最平衡嘅布甸小狗身形，毛色、精神同體力都在巔峰。",
+    personality: "四項狀態最穩定，任何照顧行動都有最好整體效率。",
+    appearance: "經典比例、飽滿健康、最佳狀態",
   },
   {
     id: "middle",
@@ -162,8 +182,9 @@ export const GROWTH_STAGES: GrowthStageMeta[] = [
     icon: "◇",
     minLevel: 22,
     minDays: 30,
-    description: "步伐開始沉穩，面上多咗溫柔同可靠嘅感覺。",
-    personality: "比以前更重視陪伴，每次見到你都會特別安心。",
+    description: "身形稍為厚實，眼皮放鬆、戴上幼框眼鏡，步伐開始慢落嚟。",
+    personality: "體力回復慢咗，玩耍更容易攰，但比以前更重視陪伴。",
+    appearance: "幼框眼鏡、柔和眼神、沉穩站姿",
   },
   {
     id: "senior",
@@ -172,10 +193,117 @@ export const GROWTH_STAGES: GrowthStageMeta[] = [
     icon: "♡",
     minLevel: 35,
     minDays: 60,
-    description: "毛色變得柔和，動作慢咗，但同你嘅羈絆最深。",
-    personality: "唔會離開或者死亡，只會慢慢享受同你一齊嘅日子。",
+    description: "老人家模式：柔和毛色、圓眼鏡、白眉毛同小手杖，行動最慢。",
+    personality: "精神下降較快、照顧要更溫柔；唔會離開，陪伴羈絆亦係最高。",
+    appearance: "圓眼鏡、白眉毛、小手杖",
   },
 ];
+
+export const GROWTH_STAGE_RULES: Record<
+  GrowthStageId,
+  GrowthStageRules
+> = {
+  child: {
+    decay: {
+      fullness: 1.25,
+      happiness: 1.1,
+      cleanliness: 1.2,
+      energy: 1.05,
+    },
+    careGain: { feed: 0.85, bath: 1.05, play: 1.1, sleep: 1.05 },
+    careCost: 1.1,
+    cooldown: 0.9,
+    xp: 1.1,
+    bond: 1.15,
+    eventPositive: 1.05,
+    eventNegative: 1.1,
+    playEnergyMinimum: 26,
+    playFullnessMinimum: 20,
+    sleepFullnessMinimum: 16,
+    headline: "細食多餐，需要密啲照顧",
+    notes: ["飽肚下降 ×1.25", "清潔下降 ×1.20", "羈絆獲得 ×1.15"],
+  },
+  teen: {
+    decay: {
+      fullness: 1.18,
+      happiness: 1.15,
+      cleanliness: 1.12,
+      energy: 1.2,
+    },
+    careGain: { feed: 1.05, bath: 1, play: 1.25, sleep: 1.12 },
+    careCost: 1.15,
+    cooldown: 0.85,
+    xp: 1.15,
+    bond: 1,
+    eventPositive: 1.08,
+    eventNegative: 1.08,
+    playEnergyMinimum: 24,
+    playFullnessMinimum: 20,
+    sleepFullnessMinimum: 15,
+    headline: "最有活力，玩得多亦攰得快",
+    notes: ["精神下降 ×1.20", "玩耍回復 ×1.25", "經驗獲得 ×1.15"],
+  },
+  adult: {
+    decay: {
+      fullness: 0.95,
+      happiness: 0.95,
+      cleanliness: 0.95,
+      energy: 0.95,
+    },
+    careGain: { feed: 1.1, bath: 1.1, play: 1.1, sleep: 1.1 },
+    careCost: 0.95,
+    cooldown: 1,
+    xp: 1,
+    bond: 1,
+    eventPositive: 1,
+    eventNegative: 0.95,
+    playEnergyMinimum: 22,
+    playFullnessMinimum: 18,
+    sleepFullnessMinimum: 15,
+    headline: "最穩定、最全面嘅巔峰狀態",
+    notes: ["四項下降 ×0.95", "照顧回復 ×1.10", "活動消耗 ×0.95"],
+  },
+  middle: {
+    decay: {
+      fullness: 0.9,
+      happiness: 0.95,
+      cleanliness: 1,
+      energy: 1.15,
+    },
+    careGain: { feed: 1, bath: 1, play: 0.9, sleep: 0.92 },
+    careCost: 1.18,
+    cooldown: 1.1,
+    xp: 0.95,
+    bond: 1.15,
+    eventPositive: 0.95,
+    eventNegative: 1.12,
+    playEnergyMinimum: 28,
+    playFullnessMinimum: 18,
+    sleepFullnessMinimum: 15,
+    headline: "體力慢慢下降，更重視陪伴",
+    notes: ["精神下降 ×1.15", "活動消耗 ×1.18", "羈絆獲得 ×1.15"],
+  },
+  senior: {
+    decay: {
+      fullness: 0.82,
+      happiness: 1,
+      cleanliness: 0.92,
+      energy: 1.25,
+    },
+    careGain: { feed: 0.85, bath: 0.9, play: 0.75, sleep: 0.8 },
+    careCost: 1.35,
+    cooldown: 1.25,
+    xp: 0.8,
+    bond: 1.3,
+    eventPositive: 0.88,
+    eventNegative: 1.2,
+    playEnergyMinimum: 36,
+    playFullnessMinimum: 22,
+    sleepFullnessMinimum: 18,
+    headline: "要慢慢照顧，陪伴價值最高",
+    notes: ["精神下降 ×1.25", "活動消耗 ×1.35", "羈絆獲得 ×1.30"],
+  },
+};
 
 export const STAT_META: Array<{
   key: StatKey;
@@ -790,6 +918,8 @@ export function actionAvailability(
   action: CareAction,
   now: number,
 ) {
+  const stage = growthStageFor(state.level, state.createdAt, now).id;
+  const rules = GROWTH_STAGE_RULES[stage];
   const remaining = Math.max(0, state.cooldowns[action] - now);
   if (remaining > 0) {
     return { ready: false, remaining, reason: "冷卻中" };
@@ -801,10 +931,16 @@ export function actionAvailability(
   if (action === "bath" && state.stats.cleanliness >= 92) {
     return { ready: false, remaining: 0, reason: "已經乾淨" };
   }
-  if (action === "play" && state.stats.energy < 22) {
+  if (
+    action === "play" &&
+    state.stats.energy < rules.playEnergyMinimum
+  ) {
     return { ready: false, remaining: 0, reason: "太攰玩唔到" };
   }
-  if (action === "play" && state.stats.fullness < 18) {
+  if (
+    action === "play" &&
+    state.stats.fullness < rules.playFullnessMinimum
+  ) {
     return { ready: false, remaining: 0, reason: "先食啲嘢" };
   }
   if (action === "play" && state.stats.happiness >= 92) {
@@ -813,7 +949,10 @@ export function actionAvailability(
   if (action === "sleep" && state.stats.energy >= 90) {
     return { ready: false, remaining: 0, reason: "精神滿滿" };
   }
-  if (action === "sleep" && state.stats.fullness < 15) {
+  if (
+    action === "sleep" &&
+    state.stats.fullness < rules.sleepFullnessMinimum
+  ) {
     return { ready: false, remaining: 0, reason: "餓到瞓唔着" };
   }
   return { ready: true, remaining: 0, reason: "可以照顧" };
@@ -861,6 +1000,26 @@ export function growthStageFor(
           level >= stage.minLevel && livedDays >= stage.minDays,
       ) ?? GROWTH_STAGES[0]
   );
+}
+
+export function growthStageRulesFor(
+  level: number,
+  createdAt: number,
+  now = Date.now(),
+) {
+  return GROWTH_STAGE_RULES[growthStageFor(level, createdAt, now).id];
+}
+
+export function stageAdjustedStatDelta(
+  stage: GrowthStageId,
+  amount: number,
+  action?: CareAction,
+) {
+  const rules = GROWTH_STAGE_RULES[stage];
+  if (amount >= 0) {
+    return amount * (action ? rules.careGain[action] : rules.eventPositive);
+  }
+  return amount * (action ? rules.careCost : rules.eventNegative);
 }
 
 export function nextGrowthStage(stage: GrowthStageId) {

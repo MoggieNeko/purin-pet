@@ -47,6 +47,7 @@ type PurinMascotProps = {
   interactive?: boolean;
   environment?: string;
   preview?: boolean;
+  showStageDesign?: boolean;
 };
 
 type SpriteSheet = "core" | "adventure" | "fancy" | "funny";
@@ -89,19 +90,11 @@ type DrawMotion = {
   scaleY: number;
 };
 
-type StageProfile = {
+type StagePlacement = {
   overall: number;
   y: number;
   rotation: number;
-  lean: number;
-  headWidth: number;
-  chestWidth: number;
-  bellyWidth: number;
-  hipWidth: number;
-  footWidth: number;
-  headHeight: number;
-  torsoHeight: number;
-  legHeight: number;
+  motion: number;
 };
 
 type PoseTransition = "steady" | "exit" | "enter";
@@ -148,77 +141,45 @@ const POSE_FILE: Record<PoseMeta["sheet"], string> = {
   care: "care-poses.webp",
 };
 
-const STAGE_PROFILE: Record<GrowthStageId, StageProfile> = {
+const STAGE_PLACEMENT: Record<GrowthStageId, StagePlacement> = {
   child: {
-    overall: 0.92,
-    y: 0.035,
+    overall: 0.8,
+    y: 0.075,
     rotation: 0,
-    lean: 0,
-    headWidth: 1.14,
-    chestWidth: 0.95,
-    bellyWidth: 0.91,
-    hipWidth: 0.92,
-    footWidth: 1.03,
-    headHeight: 1.13,
-    torsoHeight: 0.9,
-    legHeight: 0.9,
+    motion: 0.82,
   },
   teen: {
-    overall: 0.98,
-    y: 0.012,
-    rotation: -0.004,
-    lean: -0.006,
-    headWidth: 0.95,
-    chestWidth: 0.92,
-    bellyWidth: 0.86,
-    hipWidth: 0.9,
-    footWidth: 0.93,
-    headHeight: 0.95,
-    torsoHeight: 1.08,
-    legHeight: 1.06,
+    overall: 0.91,
+    y: 0.035,
+    rotation: -0.006,
+    motion: 1.18,
   },
   adult: {
     overall: 1,
     y: 0,
     rotation: 0,
-    lean: 0,
-    headWidth: 1,
-    chestWidth: 1.035,
-    bellyWidth: 1,
-    hipWidth: 1,
-    footWidth: 1,
-    headHeight: 1,
-    torsoHeight: 1,
-    legHeight: 1,
+    motion: 1,
   },
   middle: {
-    overall: 0.995,
-    y: 0.01,
-    rotation: 0.006,
-    lean: 0.004,
-    headWidth: 0.99,
-    chestWidth: 1.07,
-    bellyWidth: 1.13,
-    hipWidth: 1.09,
-    footWidth: 1.02,
-    headHeight: 0.98,
-    torsoHeight: 1.04,
-    legHeight: 0.97,
+    overall: 0.96,
+    y: 0.025,
+    rotation: 0.005,
+    motion: 0.72,
   },
   senior: {
-    overall: 0.94,
-    y: 0.035,
-    rotation: -0.024,
-    lean: -0.016,
-    headWidth: 1.06,
-    chestWidth: 0.93,
-    bellyWidth: 1.02,
-    hipWidth: 0.96,
-    footWidth: 0.9,
-    headHeight: 1.04,
-    torsoHeight: 0.94,
-    legHeight: 0.87,
+    overall: 0.88,
+    y: 0.065,
+    rotation: -0.012,
+    motion: 0.46,
   },
+};
+
+const STAGE_FILE: Record<GrowthStageId, string> = {
+  child: "child.png",
+  teen: "teen.png",
+  adult: "adult.png",
+  middle: "middle.png",
+  senior: "senior.png",
 };
 
 const ENVIRONMENT_TINT: Record<string, string> = {
@@ -275,7 +236,10 @@ const ACTION_COPY: Record<string, string> = {
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>();
 
-function petAssetPath(folder: "purin-sprites" | "purin-poses", file: string) {
+function petAssetPath(
+  folder: "purin-sprites" | "purin-poses" | "purin-stages",
+  file: string,
+) {
   return `./${folder}/${file}`;
 }
 
@@ -298,12 +262,14 @@ function cinematicPoseFor(
   action: string | null,
   condition: PetCondition,
   idlePose: IdlePose,
+  allowAmbientPose: boolean,
 ): CinematicPose | null {
   if (action === "feed" || action === "bath" || action === "play") {
     return action;
   }
   if (action === "sleep") return "nap";
   if (action) return null;
+  if (!allowAmbientPose) return null;
   if (condition === "critical") return "critical";
   if (condition === "sleepy") return "sleepy";
   if (
@@ -402,6 +368,19 @@ function motionFor(
   return motion;
 }
 
+function scaleDrawMotion(
+  motion: DrawMotion,
+  strength: number,
+): DrawMotion {
+  return {
+    x: motion.x * strength,
+    y: motion.y * strength,
+    rotation: motion.rotation * strength,
+    scaleX: 1 + (motion.scaleX - 1) * strength,
+    scaleY: 1 + (motion.scaleY - 1) * strength,
+  };
+}
+
 function transitionMotionFor(
   time: number,
   transition: PoseTransition,
@@ -441,158 +420,29 @@ function transitionMotionFor(
   };
 }
 
-function gaussian(value: number, center: number, spread: number) {
-  return Math.exp(-Math.pow((value - center) / spread, 2));
-}
-
-function drawStageDetails(
-  context: CanvasRenderingContext2D,
-  stage: GrowthStageId,
-  drawSize: number,
-) {
-  if (stage !== "middle" && stage !== "senior") return;
-
-  const faceY = -drawSize * 0.135;
-  const lensX = drawSize * 0.098;
-  const lensRadius = drawSize * (stage === "senior" ? 0.052 : 0.048);
-
-  context.save();
-  context.globalCompositeOperation = "source-over";
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.lineWidth = Math.max(1.15, drawSize * 0.008);
-  context.strokeStyle =
-    stage === "senior"
-      ? "rgba(101, 68, 51, 0.82)"
-      : "rgba(91, 58, 43, 0.78)";
-
-  for (const direction of [-1, 1]) {
-    context.beginPath();
-    context.arc(direction * lensX, faceY, lensRadius, 0, Math.PI * 2);
-    context.stroke();
-  }
-  context.beginPath();
-  context.moveTo(-lensX + lensRadius, faceY);
-  context.lineTo(lensX - lensRadius, faceY);
-  context.stroke();
-
-  if (stage === "senior") {
-    context.fillStyle = "rgba(247, 231, 197, 0.48)";
-    context.beginPath();
-    context.ellipse(
-      0,
-      -drawSize * 0.075,
-      drawSize * 0.09,
-      drawSize * 0.045,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    context.fill();
-
-    context.strokeStyle = "rgba(126, 83, 52, 0.88)";
-    context.lineWidth = Math.max(2, drawSize * 0.014);
-    context.beginPath();
-    context.moveTo(drawSize * 0.235, drawSize * 0.075);
-    context.quadraticCurveTo(
-      drawSize * 0.285,
-      drawSize * 0.035,
-      drawSize * 0.285,
-      drawSize * 0.11,
-    );
-    context.lineTo(drawSize * 0.27, drawSize * 0.34);
-    context.stroke();
-  }
-  context.restore();
-}
-
-function drawSculptedSprite(
+function drawWholeSprite(
   context: CanvasRenderingContext2D,
   image: HTMLImageElement,
-  meta: SpriteMeta | PoseMeta,
+  meta: SpriteMeta | PoseMeta | null,
   drawSize: number,
-  time: number,
-  animated: boolean,
-  stage: GrowthStageId,
   environment: string,
 ) {
-  const sourceWidth = image.naturalWidth / 2;
-  const sourceHeight = image.naturalHeight / 2;
-  const slices = 36;
-  const sourceSlice = sourceHeight / slices;
-  const profile = STAGE_PROFILE[stage];
-  const breathe = animated ? Math.sin(time * 0.00165) : 0;
-  const settle = animated ? Math.sin(time * 0.00082 + 0.7) : 0;
-  const verticalWeights = Array.from({ length: slices }, (_, index) => {
-    const middle = (index + 0.5) / slices;
-    return (
-      1 +
-      (profile.headHeight - 1) * gaussian(middle, 0.35, 0.22) +
-      (profile.torsoHeight - 1) * gaussian(middle, 0.64, 0.23) +
-      (profile.legHeight - 1) * gaussian(middle, 0.84, 0.12)
-    );
-  });
-  const totalVerticalWeight = verticalWeights.reduce(
-    (total, weight) => total + weight,
-    0,
+  const sourceWidth = meta ? image.naturalWidth / 2 : image.naturalWidth;
+  const sourceHeight = meta ? image.naturalHeight / 2 : image.naturalHeight;
+  const sourceX = meta ? meta.column * sourceWidth : 0;
+  const sourceY = meta ? meta.row * sourceHeight : 0;
+
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    -drawSize / 2,
+    -drawSize / 2,
+    drawSize,
+    drawSize,
   );
-  let destinationTop = -drawSize / 2;
-
-  for (let index = 0; index < slices; index += 1) {
-    const middle = (index + 0.5) / slices;
-    const sourceTop = index * sourceSlice;
-    const sourceOverlapTop = index === 0 ? 0 : 0.65;
-    const sourceOverlapBottom = index === slices - 1 ? 0 : 0.65;
-    const sourceY =
-      meta.row * sourceHeight + sourceTop - sourceOverlapTop;
-    const sourceDrawHeight =
-      sourceSlice + sourceOverlapTop + sourceOverlapBottom;
-
-    const headInfluence = gaussian(middle, 0.35, 0.21);
-    const chestInfluence = gaussian(middle, 0.53, 0.16);
-    const bellyInfluence = gaussian(middle, 0.67, 0.18);
-    const hipInfluence = gaussian(middle, 0.77, 0.14);
-    const footInfluence = gaussian(middle, 0.86, 0.1);
-    const silhouetteWidth =
-      1 +
-      (profile.headWidth - 1) * headInfluence +
-      (profile.chestWidth - 1) * chestInfluence +
-      (profile.bellyWidth - 1) * bellyInfluence +
-      (profile.hipWidth - 1) * hipInfluence +
-      (profile.footWidth - 1) * footInfluence;
-    const localWidth =
-      silhouetteWidth +
-      breathe * 0.006 * chestInfluence -
-      breathe * 0.0025 * headInfluence;
-    const localShift =
-      drawSize *
-      (profile.lean * (0.5 - middle) +
-        settle * 0.0028 * headInfluence -
-        settle * 0.0012 * footInfluence);
-    const localLift =
-      drawSize * breathe * 0.0018 * (headInfluence - footInfluence);
-    const destinationWidth = drawSize * localWidth;
-    const destinationSlice =
-      (drawSize * verticalWeights[index]) / totalVerticalWeight;
-    const destinationY =
-      destinationTop - (index === 0 ? 0 : 0.7) + localLift;
-    const destinationHeight =
-      destinationSlice +
-      (index === 0 || index === slices - 1 ? 0.7 : 1.4);
-
-    context.drawImage(
-      image,
-      meta.column * sourceWidth,
-      sourceY,
-      sourceWidth,
-      sourceDrawHeight,
-      -destinationWidth / 2 + localShift,
-      destinationY,
-      destinationWidth,
-      destinationHeight,
-    );
-    destinationTop += destinationSlice;
-  }
 
   const environmentTint =
     ENVIRONMENT_TINT[environment] ?? ENVIRONMENT_TINT.neutral;
@@ -606,9 +456,6 @@ function drawSculptedSprite(
     drawSize * 1.16,
   );
   context.restore();
-  if (meta.sheet !== "idle" && meta.sheet !== "care") {
-    drawStageDetails(context, stage, drawSize);
-  }
 }
 
 function ConditionEffects({ condition }: { condition: PetCondition }) {
@@ -667,6 +514,7 @@ export function PurinMascot({
   interactive = false,
   environment = "neutral",
   preview = false,
+  showStageDesign = false,
 }: PurinMascotProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const petTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -677,9 +525,21 @@ export function PurinMascot({
   const [touchPulse, setTouchPulse] = useState(0);
   const effectiveStage = baby ? "child" : growthStage;
   const sprite = SPRITES[outfit];
+  const useStageArtwork =
+    preview ||
+    showStageDesign ||
+    baby ||
+    outfit === "classic" ||
+    outfit === "soft";
+  const baseMeta: SpriteMeta | null = useStageArtwork ? null : sprite;
   const desiredCinematicPose =
     interactive && !baby
-      ? cinematicPoseFor(action, condition, idlePose)
+      ? cinematicPoseFor(
+          action,
+          condition,
+          idlePose,
+          effectiveStage === "adult",
+        )
       : null;
   const [renderPose, setRenderPose] = useState<CinematicPose | null>(
     desiredCinematicPose,
@@ -762,9 +622,12 @@ export function PurinMascot({
       const activeImage =
         renderPose && cinematicImage ? cinematicImage : baseImage;
       const activeMeta =
-        renderPose && poseMeta ? poseMeta : sprite;
-      const profile = STAGE_PROFILE[effectiveStage];
-      const motion = motionFor(time, action, condition, idlePose, petted);
+        renderPose && poseMeta ? poseMeta : baseMeta;
+      const placement = STAGE_PLACEMENT[effectiveStage];
+      const motion = scaleDrawMotion(
+        motionFor(time, action, condition, idlePose, petted),
+        placement.motion,
+      );
       const transitionMotion = transitionMotionFor(
         time,
         prefersReducedMotion ? "steady" : poseTransition,
@@ -772,29 +635,32 @@ export function PurinMascot({
       );
       const poseScale = renderPose ? POSE_SCALE[renderPose] : 1;
       const drawSize =
-        Math.min(width, height) * 1.075 * profile.overall * poseScale;
+        Math.min(width, height) *
+        1.075 *
+        placement.overall *
+        poseScale;
 
       context.save();
       context.globalAlpha = condition === "critical" ? 0.9 : 1;
       context.translate(
         width * (0.5 + motion.x + transitionMotion.x),
-        height * (0.5 + profile.y + motion.y + transitionMotion.y),
+        height *
+          (0.5 + placement.y + motion.y + transitionMotion.y),
       );
       context.rotate(
-        profile.rotation + motion.rotation + transitionMotion.rotation,
+        placement.rotation +
+          motion.rotation +
+          transitionMotion.rotation,
       );
       context.scale(
         motion.scaleX * transitionMotion.scaleX,
         motion.scaleY * transitionMotion.scaleY,
       );
-      drawSculptedSprite(
+      drawWholeSprite(
         context,
         activeImage,
         activeMeta,
         drawSize,
-        time,
-        shouldAnimate,
-        effectiveStage,
         environment,
       );
       context.restore();
@@ -819,10 +685,9 @@ export function PurinMascot({
       animationFrame = window.requestAnimationFrame(loop);
     };
 
-    const basePath = petAssetPath(
-      "purin-sprites",
-      SHEET_FILE[sprite.sheet],
-    );
+    const basePath = useStageArtwork
+      ? petAssetPath("purin-stages", STAGE_FILE[effectiveStage])
+      : petAssetPath("purin-sprites", SHEET_FILE[sprite.sheet]);
     const cinematicPath =
       poseMeta &&
       petAssetPath("purin-poses", POSE_FILE[poseMeta.sheet]);
@@ -856,6 +721,7 @@ export function PurinMascot({
     };
   }, [
     action,
+    baseMeta,
     condition,
     effectiveStage,
     environment,
@@ -866,7 +732,9 @@ export function PurinMascot({
     poseMeta,
     poseTransition,
     renderPose,
+    showStageDesign,
     sprite,
+    useStageArtwork,
   ]);
 
   const reactToPet = (
@@ -907,6 +775,8 @@ export function PurinMascot({
       } ${interactive ? "is-interactive" : ""} ${
         petted ? "is-petted" : ""
       } ${preview ? "is-growth-preview" : ""} ${
+        useStageArtwork ? "uses-stage-artwork" : ""
+      } ${
         renderPose ? `has-cinematic-pose pose-${renderPose}` : ""
       } pose-transition-${poseTransition}`}
       role={interactive ? "button" : "img"}
