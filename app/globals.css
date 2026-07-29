@@ -7390,6 +7390,191 @@ textarea:focus-visible {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* V10 — stage-aware wardrobe rig, stable growth flow and grounded walking    */
+/* -------------------------------------------------------------------------- */
+
+.growth-content {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  overflow: visible;
+}
+
+.growth-content > section {
+  position: relative;
+  z-index: 0;
+  inset: auto;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 0;
+  flex: 0 0 auto;
+  margin: 0;
+  transform: none;
+  isolation: isolate;
+}
+
+.growth-content > .growth-hero,
+.growth-content > .growth-next-card {
+  display: grid;
+}
+
+.growth-mechanics-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 9px;
+  min-height: 116px !important;
+  overflow: hidden;
+  contain: layout paint;
+}
+
+.growth-mechanics-card > header,
+.growth-mechanics-card > .growth-mechanics-chips,
+.growth-mechanics-card > p {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  margin-block: 0;
+  transform: none;
+}
+
+.growth-mechanics-card > .growth-mechanics-chips {
+  margin-block: 2px 0;
+}
+
+.growth-shape-gallery {
+  clear: both;
+  overflow: hidden;
+}
+
+.growth-shape-gallery > header,
+.growth-shape-gallery > div,
+.growth-shape-gallery article,
+.growth-shape-pet {
+  position: relative;
+  z-index: 1;
+  transform: none;
+}
+
+.closet-preview .canvas-mascot,
+.growth-shape-pet .canvas-mascot {
+  overflow: hidden;
+}
+
+.pose-transition-exit .mascot-action-caption {
+  opacity: 0.55;
+  transform: translate(-50%, 3px) scale(0.96);
+}
+
+.pose-transition-enter .mascot-action-caption {
+  animation: v10-caption-settle 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.desktop-pet-mode .pet-stage {
+  --walk-cycle: 520ms;
+  transition:
+    left var(--desktop-pet-duration, 3.6s) linear,
+    top var(--desktop-pet-duration, 3.6s) linear;
+  will-change: left, top;
+}
+
+.desktop-pet-mode .pet-stage-child {
+  --walk-cycle: 430ms;
+}
+
+.desktop-pet-mode .pet-stage-teen {
+  --walk-cycle: 350ms;
+}
+
+.desktop-pet-mode .pet-stage-middle {
+  --walk-cycle: 650ms;
+}
+
+.desktop-pet-mode .pet-stage-senior {
+  --walk-cycle: 820ms;
+}
+
+.desktop-pet-mode .pet-stage.is-walking {
+  cursor: default;
+}
+
+.desktop-pet-mode .pet-stage.is-walking .mascot-ground-shadow {
+  animation: v10-walk-contact var(--walk-cycle) steps(2, jump-none) infinite;
+}
+
+.desktop-pet-mode .pet-stage.is-walking .nameplate {
+  animation: v10-walk-nameplate calc(var(--walk-cycle) * 2) ease-in-out infinite;
+}
+
+.desktop-pet-mode .pet-stage.is-dragging,
+.desktop-pet-mode .pet-stage.is-dragging * {
+  animation-play-state: paused !important;
+}
+
+@keyframes v10-caption-settle {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 7px) scale(0.94);
+  }
+  62% {
+    opacity: 1;
+    transform: translate(-50%, -1px) scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@keyframes v10-walk-contact {
+  0% {
+    opacity: 0.68;
+    transform: scaleX(0.88);
+  }
+  100% {
+    opacity: 0.94;
+    transform: scaleX(1.08);
+  }
+}
+
+@keyframes v10-walk-nameplate {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@media (max-width: 560px) {
+  .growth-content {
+    gap: 12px;
+  }
+
+  .growth-mechanics-card {
+    min-height: 130px !important;
+  }
+
+  .growth-shape-gallery > div {
+    min-height: 142px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pose-transition-enter .mascot-action-caption,
+  .desktop-pet-mode .pet-stage.is-walking .mascot-ground-shadow,
+  .desktop-pet-mode .pet-stage.is-walking .nameplate {
+    animation: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mascot-canvas,
   .desktop-pet-mode .pet-stage {

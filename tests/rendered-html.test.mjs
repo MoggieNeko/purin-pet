@@ -47,11 +47,18 @@ test("uses independent stage artwork without the old slice renderer", async () =
     "utf8",
   );
 
-  assert.doesNotMatch(mascotSource, /drawSculptedSprite|const slices\s*=/);
+  assert.doesNotMatch(
+    mascotSource,
+    /drawSculptedSprite|const slices\s*=|purin-sprites|purin-poses/,
+  );
   for (const stage of ["child", "teen", "adult", "middle", "senior"]) {
     assert.match(mascotSource, new RegExp(`${stage}: "${stage}\\.png"`));
     assert.match(serviceWorker, new RegExp(`purin-stages/${stage}\\.png`));
   }
+  assert.match(mascotSource, /STAGE_IDLE_POSES/);
+  assert.match(mascotSource, /drawOutfitFront/);
+  assert.match(mascotSource, /drawMovementEffects/);
   assert.match(gameSource, /GROWTH_STAGE_RULES/);
   assert.match(gameSource, /stageAdjustedStatDelta/);
+  assert.match(serviceWorker, /purin-pet-v10/);
 });

@@ -90,6 +90,9 @@ const MINI_GAME_ITEM_SCORE: Record<MiniGameItemKind, number> = {
   soap: -4,
 };
 
+const clampRange = (value: number, minimum: number, maximum: number) =>
+  Math.max(minimum, Math.min(maximum, value));
+
 const ACTION_DURATION: Record<string, number> = {
   feed: 6500,
   bath: 7200,
@@ -99,6 +102,53 @@ const ACTION_DURATION: Record<string, number> = {
   level: 4300,
   event: 4200,
   baby: 4800,
+};
+
+type DesktopPetTravel = {
+  moving: boolean;
+  direction: -1 | 1;
+  duration: number;
+};
+
+const DESKTOP_ROAM_PROFILE: Record<
+  GrowthStageId,
+  {
+    interval: number;
+    speed: number;
+    minDuration: number;
+    maxDuration: number;
+  }
+> = {
+  child: {
+    interval: 5_100,
+    speed: 24,
+    minDuration: 1_700,
+    maxDuration: 3_100,
+  },
+  teen: {
+    interval: 4_600,
+    speed: 29,
+    minDuration: 1_500,
+    maxDuration: 2_800,
+  },
+  adult: {
+    interval: 6_000,
+    speed: 22,
+    minDuration: 2_100,
+    maxDuration: 3_800,
+  },
+  middle: {
+    interval: 7_200,
+    speed: 16,
+    minDuration: 2_900,
+    maxDuration: 4_700,
+  },
+  senior: {
+    interval: 8_900,
+    speed: 12,
+    minDuration: 3_600,
+    maxDuration: 5_400,
+  },
 };
 
 function makeMiniGameItem(id: number, firstWave = false): MiniGameItem {
@@ -414,6 +464,11 @@ export function PurinPet() {
   const [desktopPetMode, setDesktopPetMode] = useState(false);
   const [petPosition, setPetPosition] = useState({ x: 50, y: 65 });
   const [petDragging, setPetDragging] = useState(false);
+  const [petTravel, setPetTravel] = useState<DesktopPetTravel>({
+    moving: false,
+    direction: 1,
+    duration: DESKTOP_ROAM_PROFILE.child.minDuration,
+  });
 
   const actionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -421,6 +476,8 @@ export function PurinPet() {
   const actionLock = useRef(false);
   const miniGameItemId = useRef(1);
   const petDragActive = useRef(false);
+  const petPositionRef = useRef(petPosition);
+  const petWalkTimer = useRef<number | null>(null);
 
   const now = clock || game.lastUpdated || 0;
   const condition = useMemo(
@@ -597,6 +654,7 @@ export function PurinPet() {
       window.removeEventListener("beforeinstallprompt", installHandler);
       if (actionTimer.current) clearTimeout(actionTimer.current);
       if (toastTimer.current) clearTimeout(toastTimer.current);
+      if (petWalkTimer.current) window.clearTimeout(petWalkTimer.current);
     };
   }, []);
 
@@ -614,16 +672,60 @@ export function PurinPet() {
   }, [desktopPetMode, hydrated]);
 
   useEffect(() => {
-    if (!desktopPetMode || action) return;
+    if (!desktopPetMode || action) {
+      if (petWalkTimer.current) {
+        window.clearTimeout(petWalkTimer.current);
+        petWalkTimer.current = null;
+      }
+      const stopWalkingTimer = window.setTimeout(() => {
+        setPetTravel((current) =>
+          current.moving ? { ...current, moving: false } : current,
+        );
+      }, 0);
+      return () => window.clearTimeout(stopWalkingTimer);
+    }
+    const profile = DESKTOP_ROAM_PROFILE[currentGrowth.id];
     const roamTimer = window.setInterval(() => {
       if (petDragActive.current) return;
-      setPetPosition({
+      const nextPosition = {
         x: 18 + Math.random() * 64,
         y: 55 + Math.random() * 23,
-      });
-    }, 6500);
-    return () => window.clearInterval(roamTimer);
-  }, [action, desktopPetMode]);
+      };
+      const currentPosition = petPositionRef.current;
+      const distance = Math.hypot(
+        nextPosition.x - currentPosition.x,
+        nextPosition.y - currentPosition.y,
+      );
+      const duration = Math.round(
+        clampRange(
+          (distance / profile.speed) * 1_000,
+          profile.minDuration,
+          profile.maxDuration,
+        ),
+      );
+      const direction: -1 | 1 =
+        nextPosition.x < currentPosition.x ? -1 : 1;
+
+      if (petWalkTimer.current) {
+        window.clearTimeout(petWalkTimer.current);
+      }
+      petPositionRef.current = nextPosition;
+      setPetTravel({ moving: true, direction, duration });
+      setPetPosition(nextPosition);
+      petWalkTimer.current = window.setTimeout(() => {
+        setPetTravel((current) => ({ ...current, moving: false }));
+        petWalkTimer.current = null;
+      }, duration + 80);
+    }, profile.interval);
+
+    return () => {
+      window.clearInterval(roamTimer);
+      if (petWalkTimer.current) {
+        window.clearTimeout(petWalkTimer.current);
+        petWalkTimer.current = null;
+      }
+    };
+  }, [action, currentGrowth.id, desktopPetMode]);
 
   useEffect(() => {
     if (!desktopPetMode) return;
@@ -1115,7 +1217,11 @@ export function PurinPet() {
   const moveMiniGameBasket = (clientX: number, field: HTMLElement) => {
     if (miniGame.finished || miniGame.time <= 0) return;
     const bounds = field.getBoundingClientRect();
-    const playerX = clamp(((clientX - bounds.left) / bounds.width) * 100, 8, 92);
+    const playerX = clampRange(
+      ((clientX - bounds.left) / bounds.width) * 100,
+      8,
+      92,
+    );
     setMiniGame((current) => ({
       ...current,
       playerX,
@@ -1462,10 +1568,20 @@ export function PurinPet() {
     const room = stage.closest<HTMLElement>(".pet-room");
     if (!room) return;
     const bounds = room.getBoundingClientRect();
-    setPetPosition({
-      x: clamp(((clientX - bounds.left) / bounds.width) * 100, 12, 88),
-      y: clamp(((clientY - bounds.top) / bounds.height) * 100, 42, 82),
-    });
+    const nextPosition = {
+      x: clampRange(
+        ((clientX - bounds.left) / bounds.width) * 100,
+        12,
+        88,
+      ),
+      y: clampRange(
+        ((clientY - bounds.top) / bounds.height) * 100,
+        42,
+        82,
+      ),
+    };
+    petPositionRef.current = nextPosition;
+    setPetPosition(nextPosition);
   };
 
   return (
@@ -1657,17 +1773,27 @@ export function PurinPet() {
           <div
             className={`pet-stage ${
               desktopPetMode ? "is-desktop-draggable" : ""
-            } ${petDragging ? "is-dragging" : ""}`}
+            } ${petDragging ? "is-dragging" : ""} ${
+              petTravel.moving && !petDragging ? "is-walking" : ""
+            } direction-${petTravel.direction < 0 ? "left" : "right"} pet-stage-${
+              currentGrowth.id
+            }`}
             style={
               desktopPetMode
                 ? ({
                     "--desktop-pet-x": `${petPosition.x}%`,
                     "--desktop-pet-y": `${petPosition.y}%`,
+                    "--desktop-pet-duration": `${petTravel.duration}ms`,
                   } as CSSProperties)
                 : undefined
             }
             onPointerDown={(event) => {
               if (!desktopPetMode) return;
+              if (petWalkTimer.current) {
+                window.clearTimeout(petWalkTimer.current);
+                petWalkTimer.current = null;
+              }
+              setPetTravel((current) => ({ ...current, moving: false }));
               petDragActive.current = true;
               setPetDragging(true);
               event.currentTarget.setPointerCapture(event.pointerId);
@@ -1711,6 +1837,11 @@ export function PurinPet() {
                 name={game.petName}
                 growthStage={currentGrowth.id}
                 environment={game.selectedScene}
+                moving={
+                  desktopPetMode && petTravel.moving && !petDragging
+                }
+                moveDirection={petTravel.direction}
+                dragging={petDragging}
                 interactive
               />
             </div>
@@ -2106,7 +2237,7 @@ export function PurinPet() {
                       >
                         <span className="growth-shape-pet" aria-hidden="true">
                           <PurinMascot
-                            outfit="soft"
+                            outfit={game.selectedOutfit}
                             condition="content"
                             name={stage.label}
                             growthStage={stage.id}
@@ -2214,6 +2345,8 @@ export function PurinPet() {
                               outfit={item.id}
                               condition="content"
                               name={item.label}
+                              growthStage={currentGrowth.id}
+                              preview
                             />
                           </span>
                           <strong>{item.label}</strong>
@@ -2703,7 +2836,7 @@ export function PurinPet() {
                 const movement = event.key === "ArrowLeft" ? -8 : 8;
                 setMiniGame((current) => ({
                   ...current,
-                  playerX: clamp(current.playerX + movement, 8, 92),
+                  playerX: clampRange(current.playerX + movement, 8, 92),
                 }));
               }}
             >
