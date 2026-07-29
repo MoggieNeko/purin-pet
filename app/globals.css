@@ -7510,6 +7510,171 @@ textarea:focus-visible {
   }
 }
 
+/* V13 — authored wardrobe atlas, articulated gestures and action staging. */
+.uses-outfit-atlas .mascot-action-stage {
+  position: absolute;
+  z-index: 2;
+  inset: 13% 12% 9%;
+  display: block;
+  overflow: hidden;
+  border-radius: 46% 46% 42% 42%;
+  background:
+    radial-gradient(circle at 50% 72%, rgba(255, 231, 161, 0.18), transparent 54%),
+    radial-gradient(circle at 50% 50%, rgba(255, 250, 224, 0.12), transparent 66%);
+  opacity: 0.34;
+  transform: scale(0.94);
+  transition: opacity 320ms ease;
+  pointer-events: none;
+}
+
+.uses-outfit-atlas .mascot-fx-canvas {
+  opacity: 1;
+  transition: opacity 320ms ease;
+}
+
+.uses-outfit-atlas.pose-transition-exit .mascot-action-stage,
+.uses-outfit-atlas.pose-transition-exit .mascot-fx-canvas {
+  opacity: 0;
+}
+
+.uses-outfit-atlas .mascot-action-stage::before,
+.uses-outfit-atlas .mascot-action-stage::after {
+  position: absolute;
+  content: "";
+  border-radius: 50%;
+}
+
+.uses-outfit-atlas .mascot-action-stage::before {
+  inset: 12% 8%;
+  border: 1px solid rgba(255, 249, 218, 0.28);
+  opacity: 0;
+  transform: scale(0.84);
+}
+
+.uses-outfit-atlas .mascot-action-stage::after {
+  right: 16%;
+  bottom: 6%;
+  left: 16%;
+  height: 23%;
+  background: radial-gradient(ellipse, rgba(255, 244, 202, 0.32), transparent 68%);
+  filter: blur(7px);
+}
+
+.uses-outfit-atlas .mascot-action-feed .mascot-action-stage {
+  background:
+    radial-gradient(circle at 50% 72%, rgba(255, 172, 92, 0.34), transparent 48%),
+    radial-gradient(circle at 50% 42%, rgba(255, 244, 190, 0.23), transparent 66%);
+  opacity: 0.82;
+  animation: v13-action-aura 2.8s ease-in-out infinite;
+}
+
+.uses-outfit-atlas .mascot-action-bath .mascot-action-stage {
+  background:
+    radial-gradient(circle at 50% 68%, rgba(104, 214, 235, 0.32), transparent 51%),
+    radial-gradient(circle at 38% 31%, rgba(233, 253, 255, 0.34), transparent 63%);
+  opacity: 0.86;
+  animation: v13-action-aura 3.2s ease-in-out infinite;
+}
+
+.uses-outfit-atlas .mascot-action-play .mascot-action-stage {
+  background:
+    conic-gradient(from 35deg at 50% 58%, rgba(255, 211, 99, 0.18), transparent 20%, rgba(239, 117, 126, 0.2), transparent 62%),
+    radial-gradient(circle, rgba(255, 243, 188, 0.2), transparent 65%);
+  opacity: 0.86;
+  animation: v13-action-playfield 4.4s linear infinite;
+}
+
+.uses-outfit-atlas .mascot-action-sleep .mascot-action-stage {
+  background:
+    radial-gradient(circle at 63% 24%, rgba(255, 244, 178, 0.26), transparent 12%),
+    radial-gradient(ellipse at 50% 68%, rgba(92, 112, 184, 0.38), transparent 61%);
+  opacity: 0.88;
+  animation: v13-sleep-aura 4.8s ease-in-out infinite;
+}
+
+.uses-outfit-atlas .mascot-action-gift .mascot-action-stage,
+.uses-outfit-atlas .mascot-action-baby .mascot-action-stage {
+  background:
+    radial-gradient(circle at 50% 58%, rgba(246, 135, 166, 0.3), transparent 48%),
+    radial-gradient(circle, rgba(255, 239, 193, 0.2), transparent 68%);
+  opacity: 0.84;
+  animation: v13-action-aura 2.4s ease-in-out infinite;
+}
+
+.uses-outfit-atlas .mascot-action-level .mascot-action-stage {
+  background:
+    repeating-conic-gradient(from 0deg, rgba(255, 224, 112, 0.22) 0 7deg, transparent 7deg 18deg),
+    radial-gradient(circle, rgba(255, 246, 193, 0.28), transparent 63%);
+  opacity: 0.88;
+  animation: v13-action-playfield 7s linear infinite;
+}
+
+.uses-outfit-atlas .mascot-action-event .mascot-action-stage {
+  background:
+    radial-gradient(circle at 56% 38%, rgba(191, 151, 225, 0.28), transparent 42%),
+    radial-gradient(circle at 50% 70%, rgba(255, 236, 177, 0.2), transparent 59%);
+  opacity: 0.8;
+}
+
+.uses-outfit-atlas.idle-curious .mascot-action-stage,
+.uses-outfit-atlas.idle-sniff .mascot-action-stage,
+.uses-outfit-atlas.idle-sway .mascot-action-stage,
+.uses-outfit-atlas.idle-stretch .mascot-action-stage,
+.uses-outfit-atlas.idle-selfplay .mascot-action-stage {
+  opacity: 0.48;
+  animation: v13-idle-aura 4.6s ease-in-out infinite;
+}
+
+.uses-outfit-atlas.is-growth-preview .mascot-action-stage {
+  display: none;
+}
+
+@keyframes v13-action-aura {
+  0%,
+  100% {
+    transform: scale(0.94);
+  }
+  50% {
+    transform: scale(1.015);
+  }
+}
+
+@keyframes v13-action-playfield {
+  to {
+    transform: scale(0.98) rotate(360deg);
+  }
+}
+
+@keyframes v13-sleep-aura {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+@keyframes v13-idle-aura {
+  0%,
+  100% {
+    opacity: 0.32;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uses-outfit-atlas .mascot-action-stage {
+    animation: none !important;
+  }
+}
+
 /* V12 final cascade: calm grounded gait and age-appropriate walk timing. */
 .desktop-pet-mode .pet-stage-child {
   --walk-cycle: 760ms;
@@ -8493,4 +8658,23 @@ textarea:focus-visible {
   .growth-shape-gallery article {
     min-height: 132px;
   }
+}
+
+/* V13 last-write guard for the action handoff on iPhone Safari. */
+.uses-outfit-atlas.pose-transition-exit .mascot-action-stage,
+.uses-outfit-atlas.pose-transition-exit .mascot-fx-canvas {
+  opacity: 0;
+}
+
+.uses-outfit-atlas.pose-transition-enter .mascot-action-stage,
+.uses-outfit-atlas.pose-transition-enter .mascot-fx-canvas {
+  transition-duration: 760ms;
+}
+
+.uses-outfit-atlas .mascot-action-caption {
+  animation-duration: 760ms;
+}
+
+.uses-outfit-atlas .care-action-fx {
+  display: none;
 }

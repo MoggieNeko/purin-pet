@@ -3,6 +3,8 @@ export type SoftMeshPoint = {
   y: number;
   radiusX: number;
   radiusY: number;
+  pivotX?: number;
+  pivotY?: number;
 };
 
 export type SoftMeshLandmarks = {
@@ -30,16 +32,22 @@ export type SoftMeshPose = {
   headY: number;
   leftEarX: number;
   leftEarY: number;
+  leftEarAngle: number;
   rightEarX: number;
   rightEarY: number;
+  rightEarAngle: number;
   leftArmX: number;
   leftArmY: number;
+  leftArmAngle: number;
   rightArmX: number;
   rightArmY: number;
+  rightArmAngle: number;
   leftFootX: number;
   leftFootY: number;
+  leftFootAngle: number;
   rightFootX: number;
   rightFootY: number;
+  rightFootAngle: number;
 };
 
 export const STILL_SOFT_MESH_POSE: SoftMeshPose = {
@@ -56,16 +64,22 @@ export const STILL_SOFT_MESH_POSE: SoftMeshPose = {
   headY: 0,
   leftEarX: 0,
   leftEarY: 0,
+  leftEarAngle: 0,
   rightEarX: 0,
   rightEarY: 0,
+  rightEarAngle: 0,
   leftArmX: 0,
   leftArmY: 0,
+  leftArmAngle: 0,
   rightArmX: 0,
   rightArmY: 0,
+  rightArmAngle: 0,
   leftFootX: 0,
   leftFootY: 0,
+  leftFootAngle: 0,
   rightFootX: 0,
   rightFootY: 0,
+  rightFootAngle: 0,
 };
 
 type Point = { x: number; y: number };
@@ -143,10 +157,12 @@ function rotateLocal(
   const weight = weightFor(point, anchor);
   const cosine = Math.cos(angle);
   const sine = Math.sin(angle);
-  const dx = point.x - anchor.x;
-  const dy = point.y - anchor.y;
-  const rotatedX = anchor.x + dx * cosine - dy * sine;
-  const rotatedY = anchor.y + dx * sine + dy * cosine;
+  const pivotX = anchor.pivotX ?? anchor.x;
+  const pivotY = anchor.pivotY ?? anchor.y;
+  const dx = point.x - pivotX;
+  const dy = point.y - pivotY;
+  const rotatedX = pivotX + dx * cosine - dy * sine;
+  const rotatedY = pivotY + dx * sine + dy * cosine;
   point.x += (rotatedX - point.x) * weight;
   point.y += (rotatedY - point.y) * weight;
 }
@@ -183,12 +199,14 @@ function deformPoint(
   rotateLocal(point, landmarks.head, pose.headAngle);
   moveLocal(point, landmarks.head, pose.headX, pose.headY);
 
+  rotateLocal(point, landmarks.leftEar, pose.leftEarAngle);
   moveLocal(
     point,
     landmarks.leftEar,
     pose.leftEarX,
     pose.leftEarY,
   );
+  rotateLocal(point, landmarks.rightEar, pose.rightEarAngle);
   moveLocal(
     point,
     landmarks.rightEar,
@@ -196,24 +214,28 @@ function deformPoint(
     pose.rightEarY,
   );
 
+  rotateLocal(point, landmarks.leftArm, pose.leftArmAngle);
   moveLocal(
     point,
     landmarks.leftArm,
     pose.leftArmX,
     pose.leftArmY,
   );
+  rotateLocal(point, landmarks.rightArm, pose.rightArmAngle);
   moveLocal(
     point,
     landmarks.rightArm,
     pose.rightArmX,
     pose.rightArmY,
   );
+  rotateLocal(point, landmarks.leftFoot, pose.leftFootAngle);
   moveLocal(
     point,
     landmarks.leftFoot,
     pose.leftFootX,
     pose.leftFootY,
   );
+  rotateLocal(point, landmarks.rightFoot, pose.rightFootAngle);
   moveLocal(
     point,
     landmarks.rightFoot,

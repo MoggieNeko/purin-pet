@@ -111,6 +111,9 @@ type StageFit = {
 
 type PoseTransition = "steady" | "exit" | "enter";
 
+const POSE_EXIT_MS = 320;
+const POSE_ENTER_MS = 760;
+
 type RenderMotion = {
   key: string;
   action: string | null;
@@ -254,6 +257,55 @@ const STAGE_FILE: Record<GrowthStageId, string> = {
   senior: "senior.png",
 };
 
+const STAGE_OUTFIT_ATLAS: Record<GrowthStageId, string> = {
+  child: "child.png",
+  teen: "teen.png",
+  adult: "adult.png",
+  middle: "middle.png",
+  senior: "senior.png",
+};
+
+const OUTFIT_ATLAS_INDEX: Record<OutfitId, number> = {
+  classic: 0,
+  soft: 1,
+  scarf: 2,
+  berry: 3,
+  raincoat: 4,
+  sailor: 5,
+  bee: 6,
+  wizard: 7,
+  royal: 8,
+  pajamas: 9,
+  chef: 10,
+  detective: 11,
+  banana: 12,
+  pudding: 13,
+  sushi: 14,
+  ufo: 15,
+};
+
+const ACTION_PROP_ATLAS_INDEX: Record<string, number> = {
+  feed: 0,
+  bath: 1,
+  play: 2,
+  sleep: 3,
+  gift: 4,
+  level: 5,
+  event: 6,
+  baby: 7,
+};
+
+const OUTFIT_ATLAS_PLACEMENT: Record<
+  GrowthStageId,
+  { scale: number; y: number }
+> = {
+  child: { scale: 0.72, y: 0.065 },
+  teen: { scale: 0.93, y: 0.025 },
+  adult: { scale: 0.99, y: -0.005 },
+  middle: { scale: 0.94, y: 0.025 },
+  senior: { scale: 0.82, y: 0.095 },
+};
+
 const STAGE_IDLE_POSES: Record<GrowthStageId, IdlePose[]> = {
   child: [
     "breathe",
@@ -344,6 +396,14 @@ const imageCache = new Map<string, Promise<HTMLImageElement>>();
 
 function petAssetPath(file: string) {
   return `./purin-stages/${file}`;
+}
+
+function outfitAssetPath(file: string) {
+  return `./purin-outfits/${file}`;
+}
+
+function actionAssetPath(file: string) {
+  return `./purin-action/${file}`;
 }
 
 function loadCanvasImage(path: string) {
@@ -1527,21 +1587,22 @@ function drawMovementEffects(
   direction: -1 | 1,
 ) {
   const placement = STAGE_PLACEMENT[stage];
-  const stride = Math.sin(time * 0.009 * placement.walkSpeed);
+  const stride = Math.sin(time * 0.0052 * placement.walkSpeed);
   const footGap = fit.bodyW * drawSize * 0.18;
   const groundY = fit.groundY * drawSize;
   for (const side of [-1, 1]) {
-    const contact = Math.max(0.08, 0.6 + side * stride * 0.4);
+    const contact = 0.58 + side * stride * 0.24;
     fillEllipse(
       context,
       side * footGap - direction * stride * drawSize * 0.009,
       groundY,
-      drawSize * 0.045 * contact,
+      drawSize * 0.04 * contact,
       drawSize * 0.011,
-      `rgba(99, 66, 42, ${0.1 + contact * 0.13})`,
+      `rgba(99, 66, 42, ${0.08 + contact * 0.11})`,
     );
   }
-  if (Math.abs(stride) > 0.82) {
+  const puffOpacity = Math.max(0, (Math.abs(stride) - 0.5) / 0.5);
+  if (puffOpacity > 0) {
     const puffX = -direction * fit.bodyW * drawSize * 0.34;
     for (const offset of [0, 1, 2]) {
       fillEllipse(
@@ -1550,11 +1611,13 @@ function drawMovementEffects(
         groundY - offset * drawSize * 0.01,
         drawSize * (0.013 + offset * 0.004),
         drawSize * (0.009 + offset * 0.003),
-        `rgba(255, 240, 202, ${0.38 - offset * 0.09})`,
+        `rgba(255, 240, 202, ${
+          puffOpacity * (0.24 - offset * 0.055)
+        })`,
       );
     }
   }
-  if (stage === "senior" && stride > 0.78) {
+  if (stage === "senior" && stride > 0.5) {
     context.beginPath();
     context.arc(
       direction * drawSize * 0.2,
@@ -1563,14 +1626,206 @@ function drawMovementEffects(
       0,
       Math.PI * 2,
     );
-    context.strokeStyle = "rgba(130, 88, 54, 0.28)";
+    context.strokeStyle = `rgba(130, 88, 54, ${
+      Math.max(0, stride - 0.5) * 0.34
+    })`;
     context.lineWidth = Math.max(1, drawSize * 0.005);
     context.stroke();
   }
 }
 
+function drawActionAtlasCell(
+  context: CanvasRenderingContext2D,
+  atlas: HTMLImageElement,
+  index: number,
+  x: number,
+  y: number,
+  size: number,
+  rotation = 0,
+  opacity = 1,
+) {
+  const row = Math.floor(index / 4);
+  const column = index % 4;
+  const cellWidth = atlas.naturalWidth / 4;
+  const cellHeight = atlas.naturalHeight / 2;
+  const sourceSize = Math.min(cellWidth, cellHeight);
+  const sourceX =
+    column * cellWidth + (cellWidth - sourceSize) / 2;
+  const sourceY =
+    row * cellHeight + (cellHeight - sourceSize) / 2;
+  context.save();
+  context.translate(x, y);
+  context.rotate(rotation);
+  context.globalAlpha = opacity;
+  context.drawImage(
+    atlas,
+    sourceX,
+    sourceY,
+    sourceSize,
+    sourceSize,
+    -size / 2,
+    -size / 2,
+    size,
+    size,
+  );
+  context.restore();
+}
+
+function drawAuthoredActionProp(
+  context: CanvasRenderingContext2D,
+  atlas: HTMLImageElement,
+  action: string | null,
+  idlePose: IdlePose,
+  fit: StageFit,
+  drawSize: number,
+  slow: number,
+  fast: number,
+) {
+  const frontY = (fit.bodyY + fit.bodyH * 0.31) * drawSize;
+  const selectedAction =
+    action ??
+    (idlePose === "selfplay"
+      ? "play"
+      : idlePose === "nap" || idlePose === "doze"
+        ? "sleep"
+        : null);
+  if (!selectedAction) return false;
+  const atlasIndex = ACTION_PROP_ATLAS_INDEX[selectedAction];
+  if (atlasIndex === undefined) return false;
+
+  if (selectedAction === "feed") {
+    const y = frontY + drawSize * 0.035;
+    drawActionAtlasCell(
+      context,
+      atlas,
+      atlasIndex,
+      0,
+      y,
+      drawSize * 0.3,
+      fast * 0.012,
+    );
+    for (const x of [-0.045, 0.025]) {
+      context.beginPath();
+      context.arc(
+        x * drawSize,
+        y - drawSize * (0.105 + slow * 0.008),
+        drawSize * 0.025,
+        Math.PI * 0.15,
+        Math.PI * 0.85,
+      );
+      context.strokeStyle = "rgba(255, 250, 232, 0.76)";
+      context.lineWidth = drawSize * 0.007;
+      context.stroke();
+    }
+  } else if (selectedAction === "bath") {
+    drawActionAtlasCell(
+      context,
+      atlas,
+      atlasIndex,
+      0,
+      (fit.bodyY + fit.bodyH * 0.22) * drawSize,
+      drawSize * 0.52,
+      fast * 0.018,
+    );
+    for (let index = 0; index < 4; index += 1) {
+      const angle = index * 1.7 + slow;
+      fillEllipse(
+        context,
+        Math.cos(angle) * drawSize * 0.2,
+        (fit.bodyY - 0.02) * drawSize +
+          Math.sin(angle) * drawSize * 0.16,
+        drawSize * (0.015 + (index % 2) * 0.008),
+        drawSize * (0.015 + (index % 2) * 0.008),
+        "rgba(231, 252, 255, 0.64)",
+        "rgba(255, 255, 255, 0.82)",
+        drawSize * 0.003,
+      );
+    }
+  } else if (selectedAction === "play") {
+    const idleScale = action === "play" ? 1 : 0.72;
+    drawActionAtlasCell(
+      context,
+      atlas,
+      atlasIndex,
+      (slow * 0.15 + (action === "play" ? 0 : 0.08)) * drawSize,
+      (fit.bodyY + fit.bodyH * 0.34 - Math.abs(fast) * 0.075) *
+        drawSize,
+      drawSize * 0.2 * idleScale,
+      fast * 0.16,
+    );
+  } else if (selectedAction === "sleep") {
+    const isFullSleep = action === "sleep";
+    drawActionAtlasCell(
+      context,
+      atlas,
+      atlasIndex,
+      0,
+      (fit.bodyY + fit.bodyH * 0.3) * drawSize,
+      drawSize * (isFullSleep ? 0.58 : 0.48),
+      slow * 0.012,
+      isFullSleep ? 0.98 : 0.78,
+    );
+    context.fillStyle = "rgba(255, 250, 222, 0.92)";
+    context.font = `800 ${Math.max(10, drawSize * 0.07)}px ui-rounded, sans-serif`;
+    context.fillText(
+      "z",
+      drawSize * 0.18,
+      (fit.headY - 0.08 - slow * 0.02) * drawSize,
+    );
+    context.font = `800 ${Math.max(12, drawSize * 0.09)}px ui-rounded, sans-serif`;
+    context.fillText(
+      "Z",
+      drawSize * 0.25,
+      (fit.headY - 0.17 - slow * 0.025) * drawSize,
+    );
+  } else if (selectedAction === "gift") {
+    drawActionAtlasCell(
+      context,
+      atlas,
+      atlasIndex,
+      0,
+      frontY,
+      drawSize * 0.34,
+      fast * 0.018,
+    );
+  } else if (selectedAction === "level") {
+    drawActionAtlasCell(
+      context,
+      atlas,
+      atlasIndex,
+      0,
+      fit.bodyY * drawSize,
+      drawSize * 0.64,
+      slow * 0.08,
+      0.9,
+    );
+  } else if (selectedAction === "event") {
+    drawActionAtlasCell(
+      context,
+      atlas,
+      atlasIndex,
+      drawSize * 0.22,
+      (fit.headY - 0.12 - slow * 0.01) * drawSize,
+      drawSize * 0.22,
+      slow * 0.025,
+    );
+  } else if (selectedAction === "baby") {
+    drawActionAtlasCell(
+      context,
+      atlas,
+      atlasIndex,
+      0,
+      frontY + drawSize * 0.03,
+      drawSize * 0.4,
+      slow * 0.012,
+    );
+  }
+  return true;
+}
+
 function drawActionProps(
   context: CanvasRenderingContext2D,
+  actionPropsAtlas: HTMLImageElement | null,
   action: string | null,
   idlePose: IdlePose,
   stage: GrowthStageId,
@@ -1582,6 +1837,23 @@ function drawActionProps(
   const fast = Math.sin(time * 0.009 * STAGE_PLACEMENT[stage].idleSpeed);
   const frontY = (fit.bodyY + fit.bodyH * 0.31) * drawSize;
   context.save();
+
+  if (
+    actionPropsAtlas &&
+    drawAuthoredActionProp(
+      context,
+      actionPropsAtlas,
+      action,
+      idlePose,
+      fit,
+      drawSize,
+      slow,
+      fast,
+    )
+  ) {
+    context.restore();
+    return;
+  }
 
   if (action === "feed") {
     const bowlY = frontY + drawSize * 0.025;
@@ -1778,6 +2050,76 @@ function drawActionProps(
       context.fill();
       context.restore();
     }
+  } else if (idlePose === "curious") {
+    const bubbleX = drawSize * 0.2;
+    const bubbleY = (fit.headY - 0.1 - slow * 0.008) * drawSize;
+    fillEllipse(
+      context,
+      bubbleX,
+      bubbleY,
+      drawSize * 0.048,
+      drawSize * 0.048,
+      "rgba(255, 250, 224, 0.82)",
+      "rgba(139, 91, 60, 0.17)",
+      drawSize * 0.004,
+    );
+    context.fillStyle = "#93624c";
+    context.font = `900 ${Math.max(10, drawSize * 0.058)}px ui-rounded, sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText("?", bubbleX, bubbleY);
+    drawStar(
+      context,
+      -drawSize * 0.2,
+      (fit.headY - 0.03 + fast * 0.006) * drawSize,
+      drawSize * 0.018,
+      "rgba(255, 242, 170, 0.88)",
+      4,
+    );
+  } else if (idlePose === "sniff") {
+    context.strokeStyle = "rgba(255, 245, 213, 0.74)";
+    context.lineWidth = Math.max(1, drawSize * 0.006);
+    context.lineCap = "round";
+    for (let index = 0; index < 3; index += 1) {
+      const x = drawSize * (0.12 + index * 0.045);
+      const y = (fit.headY + 0.03 - index * 0.035) * drawSize;
+      context.beginPath();
+      context.moveTo(x, y);
+      context.bezierCurveTo(
+        x + drawSize * 0.025,
+        y - drawSize * 0.025,
+        x - drawSize * 0.012,
+        y - drawSize * 0.055,
+        x + drawSize * 0.018,
+        y - drawSize * 0.075,
+      );
+      context.stroke();
+    }
+  } else if (idlePose === "sway") {
+    context.fillStyle = "rgba(255, 244, 185, 0.78)";
+    context.font = `800 ${Math.max(10, drawSize * 0.055)}px ui-rounded, sans-serif`;
+    context.fillText(
+      "♪",
+      -drawSize * 0.23,
+      (fit.headY - 0.05 + slow * 0.018) * drawSize,
+    );
+    context.font = `800 ${Math.max(9, drawSize * 0.045)}px ui-rounded, sans-serif`;
+    context.fillText(
+      "♫",
+      drawSize * 0.2,
+      (fit.headY + 0.025 - slow * 0.014) * drawSize,
+    );
+  } else if (idlePose === "stretch") {
+    for (const direction of [-1, 1]) {
+      drawStar(
+        context,
+        direction * drawSize * 0.24,
+        (fit.bodyY - 0.12 + slow * 0.008) * drawSize,
+        drawSize * 0.018,
+        "rgba(255, 245, 188, 0.84)",
+        4,
+      );
+    }
   } else if (idlePose === "glasses") {
     drawStar(
       context,
@@ -1876,12 +2218,18 @@ function softMeshPoseFor(
     pose.rightArmY = -leftLift * 0.01 * strength;
     pose.leftArmX = stride * 0.0035 * strength;
     pose.rightArmX = -stride * 0.0035 * strength;
+    pose.leftArmAngle = stride * 0.13 * strength;
+    pose.rightArmAngle = -stride * 0.13 * strength;
     pose.leftFootX = -stride * 0.007 * strength;
     pose.leftFootY = -leftLift * 0.018 * strength;
     pose.rightFootX = stride * 0.007 * strength;
     pose.rightFootY = -rightLift * 0.018 * strength;
+    pose.leftFootAngle = -stride * 0.075 * strength;
+    pose.rightFootAngle = stride * 0.075 * strength;
     pose.leftEarY = stride * 0.0028 * strength;
     pose.rightEarY = -stride * 0.0028 * strength;
+    pose.leftEarAngle = stride * 0.018 * strength;
+    pose.rightEarAngle = stride * 0.018 * strength;
     return pose;
   }
 
@@ -1904,6 +2252,8 @@ function softMeshPoseFor(
     pose.rightArmX = -0.024 * strength;
     pose.leftArmY = (-0.038 - actionPulse * 0.012) * strength;
     pose.rightArmY = (-0.038 - actionPulse * 0.012) * strength;
+    pose.leftArmAngle = (-0.16 - actionPulse * 0.08) * strength;
+    pose.rightArmAngle = (0.16 + actionPulse * 0.08) * strength;
     pose.bodyBreath += actionFast * 0.004;
     return pose;
   }
@@ -1919,6 +2269,10 @@ function softMeshPoseFor(
     pose.rightArmX = 0.018 * strength;
     pose.leftArmY = -actionPulse * 0.015 * strength;
     pose.rightArmY = -actionPulse * 0.015 * strength;
+    pose.leftArmAngle = actionFast * 0.16 * strength;
+    pose.rightArmAngle = actionFast * 0.16 * strength;
+    pose.leftEarAngle = -actionFast * 0.035 * strength;
+    pose.rightEarAngle = -actionFast * 0.035 * strength;
     return pose;
   }
 
@@ -1929,10 +2283,16 @@ function softMeshPoseFor(
     pose.leftArmY = -Math.max(0, actionFast) * 0.025 * strength;
     pose.rightArmY =
       -Math.max(0, -actionFast) * 0.025 * strength;
+    pose.leftArmAngle = actionFast * 0.22 * strength;
+    pose.rightArmAngle = actionFast * 0.22 * strength;
     pose.leftFootY = -Math.max(0, -actionFast) * 0.016 * strength;
     pose.rightFootY = -Math.max(0, actionFast) * 0.016 * strength;
+    pose.leftFootAngle = -actionFast * 0.095 * strength;
+    pose.rightFootAngle = -actionFast * 0.095 * strength;
     pose.leftEarY = actionFast * 0.006 * strength;
     pose.rightEarY = -actionFast * 0.006 * strength;
+    pose.leftEarAngle = actionFast * 0.028 * strength;
+    pose.rightEarAngle = actionFast * 0.028 * strength;
     return pose;
   }
 
@@ -1945,8 +2305,12 @@ function softMeshPoseFor(
     pose.headY = 0.018;
     pose.leftEarY = 0.016 + slow * 0.003;
     pose.rightEarY = 0.018 - slow * 0.003;
+    pose.leftEarAngle = 0.045;
+    pose.rightEarAngle = -0.045;
     pose.leftArmY = 0.014;
     pose.rightArmY = 0.014;
+    pose.leftArmAngle = 0.035;
+    pose.rightArmAngle = -0.035;
     return pose;
   }
 
@@ -1957,6 +2321,8 @@ function softMeshPoseFor(
     pose.rightArmX = -0.026 * strength;
     pose.leftArmY = -0.045 * strength;
     pose.rightArmY = -0.045 * strength;
+    pose.leftArmAngle = (-0.2 - actionPulse * 0.08) * strength;
+    pose.rightArmAngle = (0.2 + actionPulse * 0.08) * strength;
     return pose;
   }
 
@@ -1967,8 +2333,12 @@ function softMeshPoseFor(
     pose.rightArmX = 0.016 * strength;
     pose.leftArmY = -0.042 * strength;
     pose.rightArmY = -0.042 * strength;
+    pose.leftArmAngle = 0.28 * strength;
+    pose.rightArmAngle = -0.28 * strength;
     pose.leftFootY = -Math.max(0, actionFast) * 0.018;
     pose.rightFootY = -Math.max(0, -actionFast) * 0.018;
+    pose.leftFootAngle = -actionFast * 0.08;
+    pose.rightFootAngle = -actionFast * 0.08;
     return pose;
   }
 
@@ -1978,6 +2348,9 @@ function softMeshPoseFor(
     pose.leftEarY = 0.006;
     pose.rightEarY = -0.006;
     pose.leftArmY = -0.012;
+    pose.leftEarAngle = -0.055;
+    pose.rightEarAngle = -0.018;
+    pose.leftArmAngle = 0.12;
     return pose;
   }
 
@@ -1988,6 +2361,8 @@ function softMeshPoseFor(
     pose.rightArmX = -0.032 * strength;
     pose.leftArmY = -0.02 * strength;
     pose.rightArmY = -0.02 * strength;
+    pose.leftArmAngle = -0.12 * strength;
+    pose.rightArmAngle = 0.12 * strength;
     pose.bodyBreath += slow * 0.006;
     return pose;
   }
@@ -1998,8 +2373,12 @@ function softMeshPoseFor(
     pose.headAngle = actionSlow * 0.012 * strength;
     pose.leftEarY = actionFast * 0.006 * strength;
     pose.rightEarY = -actionFast * 0.006 * strength;
+    pose.leftEarAngle = actionFast * 0.035 * strength;
+    pose.rightEarAngle = actionFast * 0.035 * strength;
     pose.leftArmY = -actionPulse * 0.012 * strength;
     pose.rightArmY = -actionPulse * 0.012 * strength;
+    pose.leftArmAngle = actionFast * 0.1 * strength;
+    pose.rightArmAngle = actionFast * 0.1 * strength;
     return pose;
   }
 
@@ -2021,6 +2400,8 @@ function softMeshPoseFor(
     pose.bodyStretch = -0.018;
     pose.leftArmX = 0.014;
     pose.rightArmX = -0.014;
+    pose.leftArmAngle = -0.08;
+    pose.rightArmAngle = 0.08;
     pose.headY = 0.008;
   } else if (state.condition === "lonely") {
     pose.y += 0.016;
@@ -2028,17 +2409,23 @@ function softMeshPoseFor(
     pose.headY = 0.012;
     pose.leftEarY = 0.014;
     pose.rightEarY = 0.014;
+    pose.leftEarAngle = 0.04;
+    pose.rightEarAngle = -0.04;
     pose.leftArmY = 0.009;
     pose.rightArmY = 0.009;
   } else if (state.condition === "dirty") {
     pose.bodyLean = fast * 0.012;
     pose.leftArmY = -Math.max(0, fast) * 0.018;
     pose.rightArmY = -Math.max(0, -fast) * 0.018;
+    pose.leftArmAngle = fast * 0.1;
+    pose.rightArmAngle = fast * 0.1;
   } else if (state.condition === "sleepy") {
     pose.headY = 0.01 + Math.max(0, slow) * 0.008;
     pose.headAngle = -0.02;
     pose.leftEarY = 0.01;
     pose.rightEarY = 0.01;
+    pose.leftEarAngle = 0.025;
+    pose.rightEarAngle = -0.025;
   } else if (state.condition === "critical") {
     pose.y += 0.022;
     pose.bodyStretch = -0.025;
@@ -2046,10 +2433,14 @@ function softMeshPoseFor(
     pose.headAngle = slow * 0.009;
     pose.leftEarY = 0.018;
     pose.rightEarY = 0.018;
+    pose.leftEarAngle = 0.05;
+    pose.rightEarAngle = -0.05;
   } else if (state.condition === "radiant") {
     pose.y -= Math.abs(medium) * 0.01 * strength;
     pose.leftEarY = fast * 0.007;
     pose.rightEarY = -fast * 0.007;
+    pose.leftEarAngle = fast * 0.03 * strength;
+    pose.rightEarAngle = fast * 0.03 * strength;
   }
 
   if (state.idlePose === "curious") {
@@ -2058,6 +2449,8 @@ function softMeshPoseFor(
     pose.headX = 0.004 * gesture;
     pose.leftEarY -= 0.005 * gesture;
     pose.rightEarY += 0.006 * gesture;
+    pose.leftEarAngle -= 0.065 * gesture;
+    pose.rightEarAngle += 0.02 * gesture;
   } else if (state.idlePose === "sniff") {
     const gesture = idlePulse(6_600, 0.2, 0.34);
     const sniff = Math.sin(idleElapsed * 0.012) * gesture;
@@ -2071,6 +2464,8 @@ function softMeshPoseFor(
     pose.headAngle -= sway * 0.007 * strength;
     pose.leftArmY = -Math.max(0, sway) * 0.007;
     pose.rightArmY = -Math.max(0, -sway) * 0.007;
+    pose.leftArmAngle = sway * 0.07 * strength;
+    pose.rightArmAngle = sway * 0.07 * strength;
   } else if (state.idlePose === "toddle") {
     const gesture = idlePulse(6_800, 0.2, 0.42);
     const step = Math.sin(idleElapsed * 0.0062) * gesture;
@@ -2079,8 +2474,12 @@ function softMeshPoseFor(
     pose.bodyLean += step * 0.012;
     pose.leftFootY = -Math.max(0, step) * 0.012;
     pose.rightFootY = -Math.max(0, -step) * 0.012;
+    pose.leftFootAngle = -step * 0.07;
+    pose.rightFootAngle = -step * 0.07;
     pose.leftArmY = -Math.max(0, -step) * 0.008;
     pose.rightArmY = -Math.max(0, step) * 0.008;
+    pose.leftArmAngle = step * 0.1;
+    pose.rightArmAngle = step * 0.1;
   } else if (state.idlePose === "energetic") {
     const gesture = idlePulse(7_000, 0.18, 0.34);
     const hop = Math.max(0, Math.sin(idleElapsed * 0.0064)) * gesture;
@@ -2089,8 +2488,12 @@ function softMeshPoseFor(
     pose.headY = -hop * 0.003;
     pose.leftArmY = -Math.max(0, alternate) * 0.018;
     pose.rightArmY = -Math.max(0, -alternate) * 0.018;
+    pose.leftArmAngle = alternate * 0.18;
+    pose.rightArmAngle = alternate * 0.18;
     pose.leftFootY = -Math.max(0, -alternate) * 0.01;
     pose.rightFootY = -Math.max(0, alternate) * 0.01;
+    pose.leftFootAngle = -alternate * 0.07;
+    pose.rightFootAngle = -alternate * 0.07;
   } else if (state.idlePose === "stretch") {
     const gesture = idlePulse(8_600, 0.18, 0.58);
     pose.bodyStretch += 0.014 * gesture;
@@ -2100,17 +2503,23 @@ function softMeshPoseFor(
     pose.rightArmX = 0.01 * gesture;
     pose.leftArmY = -0.013 * gesture;
     pose.rightArmY = -0.013 * gesture;
+    pose.leftArmAngle = 0.2 * gesture;
+    pose.rightArmAngle = -0.2 * gesture;
+    pose.leftEarAngle = -0.02 * gesture;
+    pose.rightEarAngle = 0.02 * gesture;
   } else if (state.idlePose === "glasses") {
     const gesture = idlePulse(9_200, 0.27, 0.34);
     pose.headAngle += -0.014 * gesture;
     pose.leftArmX = 0.012 * gesture;
     pose.leftArmY = -0.019 * gesture;
+    pose.leftArmAngle = 0.2 * gesture;
   } else if (state.idlePose === "cane") {
     const gesture = idlePulse(10_200, 0.14, 0.66);
     const weightShift = Math.sin(idleElapsed * 0.00125) * gesture;
     pose.bodyLean += -0.008 * gesture + weightShift * 0.003;
     pose.headAngle += 0.007 * gesture;
     pose.leftArmY = Math.max(0, weightShift) * 0.003;
+    pose.leftArmAngle = weightShift * 0.035;
   } else if (state.idlePose === "doze" || state.idlePose === "nap") {
     const gesture = idlePulse(
       state.idlePose === "nap" ? 10_800 : 8_800,
@@ -2123,6 +2532,8 @@ function softMeshPoseFor(
     pose.headY = 0.009 * gesture;
     pose.leftEarY = 0.007 * gesture;
     pose.rightEarY = 0.007 * gesture;
+    pose.leftEarAngle = 0.035 * gesture;
+    pose.rightEarAngle = -0.035 * gesture;
   } else if (state.idlePose === "selfplay") {
     const gesture = idlePulse(7_600, 0.18, 0.5);
     const playBeat = Math.sin(idleElapsed * 0.006) * gesture;
@@ -2131,11 +2542,60 @@ function softMeshPoseFor(
     pose.rightArmX = -0.013 * gesture;
     pose.leftArmY = -Math.max(0, playBeat) * 0.016;
     pose.rightArmY = -Math.max(0, -playBeat) * 0.016;
+    pose.leftArmAngle = playBeat * 0.18;
+    pose.rightArmAngle = playBeat * 0.18;
     pose.leftFootY = -Math.max(0, -playBeat) * 0.007;
     pose.rightFootY = -Math.max(0, playBeat) * 0.007;
+    pose.leftFootAngle = -playBeat * 0.06;
+    pose.rightFootAngle = -playBeat * 0.06;
   }
 
   return pose;
+}
+
+function softenPoseTransition(
+  pose: SoftMeshPose,
+  time: number,
+  transition: PoseTransition,
+  startedAt: number,
+) {
+  if (transition === "steady") return pose;
+  const duration =
+    transition === "exit" ? POSE_EXIT_MS : POSE_ENTER_MS;
+  const progress = Math.min(
+    1,
+    Math.max(0, (time - startedAt) / duration),
+  );
+  const smooth = progress * progress * (3 - 2 * progress);
+  const weight = transition === "exit" ? 1 - smooth : smooth;
+
+  return {
+    ...pose,
+    bodyBreath: pose.bodyBreath * weight,
+    bodyStretch: pose.bodyStretch * weight,
+    bodyLean: pose.bodyLean * weight,
+    headAngle: pose.headAngle * weight,
+    headX: pose.headX * weight,
+    headY: pose.headY * weight,
+    leftEarX: pose.leftEarX * weight,
+    leftEarY: pose.leftEarY * weight,
+    leftEarAngle: pose.leftEarAngle * weight,
+    rightEarX: pose.rightEarX * weight,
+    rightEarY: pose.rightEarY * weight,
+    rightEarAngle: pose.rightEarAngle * weight,
+    leftArmX: pose.leftArmX * weight,
+    leftArmY: pose.leftArmY * weight,
+    leftArmAngle: pose.leftArmAngle * weight,
+    rightArmX: pose.rightArmX * weight,
+    rightArmY: pose.rightArmY * weight,
+    rightArmAngle: pose.rightArmAngle * weight,
+    leftFootX: pose.leftFootX * weight,
+    leftFootY: pose.leftFootY * weight,
+    leftFootAngle: pose.leftFootAngle * weight,
+    rightFootX: pose.rightFootX * weight,
+    rightFootY: pose.rightFootY * weight,
+    rightFootAngle: pose.rightFootAngle * weight,
+  };
 }
 
 function transitionMotionFor(
@@ -2144,7 +2604,10 @@ function transitionMotionFor(
   startedAt: number,
 ): DrawMotion {
   if (transition === "exit") {
-    const progress = Math.min(1, Math.max(0, (time - startedAt) / 240));
+    const progress = Math.min(
+      1,
+      Math.max(0, (time - startedAt) / POSE_EXIT_MS),
+    );
     const eased = 1 - Math.pow(1 - progress, 2);
     return {
       x: 0,
@@ -2156,7 +2619,10 @@ function transitionMotionFor(
     };
   }
   if (transition === "enter") {
-    const progress = Math.min(1, Math.max(0, (time - startedAt) / 680));
+    const progress = Math.min(
+      1,
+      Math.max(0, (time - startedAt) / POSE_ENTER_MS),
+    );
     const remaining = 1 - progress;
     const settle = Math.sin(progress * Math.PI * 1.8) * remaining;
     return {
@@ -2227,48 +2693,74 @@ function softMeshLandmarksFor(stage: GrowthStageId): SoftMeshLandmarks {
       y: headY + 0.008,
       radiusX: fit.headW * scale * 0.19,
       radiusY: 0.105 * scale,
+      pivotX: 0.5 - earX * 0.64,
+      pivotY: headY - 0.018 * scale,
     },
     rightEar: {
       x: 0.5 + earX,
       y: headY + 0.008,
       radiusX: fit.headW * scale * 0.19,
       radiusY: 0.105 * scale,
+      pivotX: 0.5 + earX * 0.64,
+      pivotY: headY - 0.018 * scale,
     },
     leftArm: {
       x: 0.5 - armX,
       y: armY,
       radiusX: 0.075 * scale,
       radiusY: 0.11 * scale,
+      pivotX: 0.5 - armX * 0.72,
+      pivotY: armY - 0.058 * scale,
     },
     rightArm: {
       x: 0.5 + armX,
       y: armY,
       radiusX: 0.075 * scale,
       radiusY: 0.11 * scale,
+      pivotX: 0.5 + armX * 0.72,
+      pivotY: armY - 0.058 * scale,
     },
     leftFoot: {
       x: 0.5 - footX,
       y: footY,
       radiusX: 0.095 * scale,
       radiusY: 0.07 * scale,
+      pivotX: 0.5 - footX,
+      pivotY: footY - 0.038 * scale,
     },
     rightFoot: {
       x: 0.5 + footX,
       y: footY,
       radiusX: 0.095 * scale,
       radiusY: 0.07 * scale,
+      pivotX: 0.5 + footX,
+      pivotY: footY - 0.038 * scale,
     },
   };
 }
 
 function drawCompositeTexture(
   context: CanvasRenderingContext2D,
-  image: HTMLImageElement,
+  image: HTMLImageElement | null,
+  outfitAtlas: HTMLImageElement | null,
   stage: GrowthStageId,
   outfit: OutfitId,
   environment: string,
   size: number,
 ) {
+  if (outfitAtlas) {
+    drawAtlasOutfitTexture(
+      context,
+      outfitAtlas,
+      stage,
+      outfit,
+      environment,
+      size,
+    );
+    return;
+  }
+  if (!image) return;
+
   const placement = STAGE_PLACEMENT[stage];
   const fit = STAGE_FIT[stage];
   const drawSize = size * 1.075 * placement.overall;
@@ -2297,6 +2789,48 @@ function drawCompositeTexture(
     }
   }
   applyEnvironmentTint(context, drawSize, environment);
+  context.restore();
+}
+
+function drawAtlasOutfitTexture(
+  context: CanvasRenderingContext2D,
+  atlas: HTMLImageElement,
+  stage: GrowthStageId,
+  outfit: OutfitId,
+  environment: string,
+  size: number,
+) {
+  const atlasIndex = OUTFIT_ATLAS_INDEX[outfit];
+  const row = Math.floor(atlasIndex / 4);
+  const column = atlasIndex % 4;
+  const cellWidth = atlas.naturalWidth / 4;
+  const cellHeight = atlas.naturalHeight / 4;
+  const placement = OUTFIT_ATLAS_PLACEMENT[stage];
+  const destinationSize = size * placement.scale;
+  const destinationX = (size - destinationSize) / 2;
+  const destinationY =
+    size * (0.5 + placement.y) - destinationSize / 2;
+
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, size, size);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(
+    atlas,
+    column * cellWidth,
+    row * cellHeight,
+    cellWidth,
+    cellHeight,
+    destinationX,
+    destinationY,
+    destinationSize,
+    destinationSize,
+  );
+  context.save();
+  context.globalCompositeOperation = "source-atop";
+  context.fillStyle =
+    ENVIRONMENT_TINT[environment] ?? ENVIRONMENT_TINT.neutral;
+  context.fillRect(0, 0, size, size);
   context.restore();
 }
 
@@ -2447,8 +2981,8 @@ export function PurinMascot({
       setPoseTransition("enter");
       transitionTimer.current = setTimeout(() => {
         setPoseTransition("steady");
-      }, 680);
-    }, 240);
+      }, POSE_ENTER_MS);
+    }, POSE_EXIT_MS);
   }, [action, condition, desiredKey, direction, idlePose, moving]);
 
   useEffect(() => {
@@ -2458,11 +2992,13 @@ export function PurinMascot({
 
     let cancelled = false;
     let animationFrame = 0;
-    let baseImage: HTMLImageElement | null = null;
+    let textureReady = false;
+    let outfitAtlas: HTMLImageElement | null = null;
+    let actionPropsAtlas: HTMLImageElement | null = null;
     let width = 0;
     let height = 0;
     let pixelRatio = 1;
-    const textureSize = preview ? 640 : 960;
+    const textureSize = preview ? 384 : 768;
     const textureCanvas = document.createElement("canvas");
     textureCanvas.width = textureSize;
     textureCanvas.height = textureSize;
@@ -2485,14 +3021,19 @@ export function PurinMascot({
     const landmarks = softMeshLandmarksFor(effectiveStage);
 
     const paint = (time: number) => {
-      if (cancelled || !baseImage || width <= 0 || height <= 0) return;
+      if (cancelled || !textureReady || width <= 0 || height <= 0) return;
       const placement = STAGE_PLACEMENT[effectiveStage];
       const fit = STAGE_FIT[effectiveStage];
-      const pose = softMeshPoseFor(
+      const pose = softenPoseTransition(
+        softMeshPoseFor(
+          time,
+          renderMotion,
+          effectiveStage,
+          petted,
+          prefersReducedMotion ? "steady" : poseTransition,
+          poseTransitionStarted.current,
+        ),
         time,
-        renderMotion,
-        effectiveStage,
-        petted,
         prefersReducedMotion ? "steady" : poseTransition,
         poseTransitionStarted.current,
       );
@@ -2533,6 +3074,7 @@ export function PurinMascot({
       }
       drawActionProps(
         fxContext,
+        actionPropsAtlas,
         renderMotion.action,
         renderMotion.idlePose,
         effectiveStage,
@@ -2569,18 +3111,34 @@ export function PurinMascot({
       animationFrame = window.requestAnimationFrame(loop);
     };
 
-    loadCanvasImage(petAssetPath(STAGE_FILE[effectiveStage]))
-      .then((loadedBase) => {
+    Promise.all([
+      loadCanvasImage(
+        outfitAssetPath(STAGE_OUTFIT_ATLAS[effectiveStage]),
+      ).catch(() => null),
+      loadCanvasImage(
+        actionAssetPath("action-props.png"),
+      ).catch(() => null),
+    ])
+      .then(async ([loadedAtlas, loadedActionProps]) => {
         if (cancelled) return;
-        baseImage = loadedBase;
+        outfitAtlas = loadedAtlas;
+        actionPropsAtlas = loadedActionProps;
+        const loadedBase = loadedAtlas
+          ? null
+          : await loadCanvasImage(
+              petAssetPath(STAGE_FILE[effectiveStage]),
+            );
+        if (cancelled) return;
         drawCompositeTexture(
           textureContext,
           loadedBase,
+          outfitAtlas,
           effectiveStage,
           outfit,
           environment,
           textureSize,
         );
+        textureReady = true;
         meshRenderer?.upload(textureCanvas);
         resize();
         if (shouldAnimate) {
@@ -2652,7 +3210,7 @@ export function PurinMascot({
 
   return (
     <span
-      className={`purin-mascot canvas-mascot uses-stage-artwork condition-${condition} outfit-${outfit} stage-${effectiveStage} idle-${renderMotion.idlePose} ${
+      className={`purin-mascot canvas-mascot uses-stage-artwork uses-outfit-atlas condition-${condition} outfit-${outfit} stage-${effectiveStage} idle-${renderMotion.idlePose} ${
         baby ? "is-baby" : ""
       } ${interactive ? "is-interactive" : ""} ${
         petted ? "is-petted" : ""
@@ -2699,6 +3257,7 @@ export function PurinMascot({
       <span className="mascot-stage-shell">
         <span className={`mascot-rig mascot-action-${action ?? "idle"}`}>
           <span className="mascot-ground-shadow" aria-hidden="true" />
+          <span className="mascot-action-stage" aria-hidden="true" />
           <span className="mascot-environment-glow" aria-hidden="true" />
           <canvas ref={canvasRef} className="mascot-canvas" aria-hidden="true" />
           <canvas

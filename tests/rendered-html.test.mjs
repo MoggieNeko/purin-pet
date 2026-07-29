@@ -64,12 +64,22 @@ test("uses independent stage artwork without the old slice renderer", async () =
     assert.match(serviceWorker, new RegExp(`purin-stages/${stage}\\.png`));
   }
   assert.match(mascotSource, /STAGE_IDLE_POSES/);
-  assert.match(mascotSource, /drawOutfitFront/);
+  assert.match(mascotSource, /STAGE_OUTFIT_ATLAS/);
+  assert.match(mascotSource, /OUTFIT_ATLAS_INDEX/);
+  assert.match(mascotSource, /drawAtlasOutfitTexture/);
+  assert.match(mascotSource, /ACTION_PROP_ATLAS_INDEX/);
+  assert.match(mascotSource, /drawAuthoredActionProp/);
   assert.match(mascotSource, /drawMovementEffects/);
-  assert.match(mascotSource, /drawStageOcclusion/);
-  assert.match(mascotSource, /drawGarmentFinish/);
+  for (const stage of ["child", "teen", "adult", "middle", "senior"]) {
+    assert.match(serviceWorker, new RegExp(`purin-outfits/${stage}\\.png`));
+  }
+  assert.match(serviceWorker, /purin-action\/action-props\.png/);
   assert.match(meshSource, /createSoftMeshRenderer/);
   assert.match(meshSource, /deformPoint/);
+  assert.match(meshSource, /pivotX\?: number/);
+  assert.match(meshSource, /leftArmAngle/);
+  assert.match(mascotSource, /softenPoseTransition/);
+  assert.match(mascotSource, /POSE_ENTER_MS = 760/);
   assert.match(meshSource, /UNPACK_FLIP_Y_WEBGL,\s*0/);
   assert.doesNotMatch(meshSource, /UNPACK_FLIP_Y_WEBGL,\s*1/);
   for (const anchor of [
@@ -85,11 +95,13 @@ test("uses independent stage artwork without the old slice renderer", async () =
   assert.match(mascotSource, /softContact/);
   assert.match(globalStyles, /V11 final cascade/);
   assert.match(globalStyles, /V12 final cascade/);
+  assert.match(globalStyles, /V13 last-write guard/);
+  assert.match(globalStyles, /\.mascot-action-stage/);
   assert.match(globalStyles, /\.mascot-fx-canvas/);
   assert.match(globalStyles, /\.bottom-sheet\s*{[\s\S]*?height:\s*100%/);
   assert.match(globalStyles, /\.sheet-content\s*{[\s\S]*?overflow-y:\s*auto/);
   assert.match(globalStyles, /\.sheet-tabs\s*{[\s\S]*?position:\s*relative\s*!important/);
   assert.match(gameSource, /GROWTH_STAGE_RULES/);
   assert.match(gameSource, /stageAdjustedStatDelta/);
-  assert.match(serviceWorker, /purin-pet-v12/);
+  assert.match(serviceWorker, /purin-pet-v13/);
 });
