@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  STILL_SOFT_MESH_POSE,
+  createSoftMeshRenderer,
+  type SoftMeshLandmarks,
+  type SoftMeshPose,
+} from "./purinSoftMesh";
 
 export type OutfitId =
   | "classic"
@@ -1115,6 +1121,362 @@ function drawOutfitFront(
   context.restore();
 }
 
+const BODY_OUTFITS = new Set<OutfitId>([
+  "berry",
+  "raincoat",
+  "sailor",
+  "bee",
+  "wizard",
+  "royal",
+  "pajamas",
+  "chef",
+  "detective",
+  "pudding",
+  "sushi",
+]);
+
+function drawGarmentFinish(
+  context: CanvasRenderingContext2D,
+  outfit: OutfitId,
+  stage: GrowthStageId,
+  fit: StageFit,
+  drawSize: number,
+) {
+  if (!BODY_OUTFITS.has(outfit)) return;
+
+  const neckY = fit.neckY * drawSize;
+  const hemY = (fit.bodyY + fit.bodyH * 0.48) * drawSize;
+  const bodyWidth = fit.bodyW * drawSize;
+  const roomy =
+    stage === "child" ? 0.9 : stage === "teen" ? 0.94 : stage === "senior" ? 1.04 : 1;
+
+  context.save();
+  torsoPath(context, fit, drawSize, roomy, stage === "teen" ? 0.9 : 1);
+  context.clip();
+
+  const sheen = context.createLinearGradient(
+    -bodyWidth * 0.5,
+    neckY,
+    bodyWidth * 0.5,
+    hemY,
+  );
+  sheen.addColorStop(0, "rgba(255,255,255,0.32)");
+  sheen.addColorStop(0.34, "rgba(255,255,255,0.08)");
+  sheen.addColorStop(0.72, "rgba(87,45,32,0.035)");
+  sheen.addColorStop(1, "rgba(74,38,28,0.12)");
+  context.fillStyle = sheen;
+  context.fillRect(-bodyWidth, neckY, bodyWidth * 2, hemY - neckY + drawSize * 0.08);
+
+  context.strokeStyle = "rgba(255,255,255,0.42)";
+  context.lineWidth = Math.max(1, drawSize * 0.004);
+  context.beginPath();
+  context.moveTo(-bodyWidth * 0.27, neckY + drawSize * 0.055);
+  context.quadraticCurveTo(
+    -bodyWidth * 0.4,
+    (neckY + hemY) * 0.5,
+    -bodyWidth * 0.29,
+    hemY - drawSize * 0.025,
+  );
+  context.stroke();
+
+  if (outfit === "berry") {
+    for (const [x, y] of [
+      [-0.11, 0.1],
+      [0.12, 0.13],
+      [-0.03, 0.22],
+      [0.14, 0.27],
+    ]) {
+      fillEllipse(
+        context,
+        x * drawSize,
+        (fit.bodyY - 0.04 + y) * drawSize,
+        drawSize * 0.012,
+        drawSize * 0.012,
+        "rgba(255,231,237,0.72)",
+      );
+    }
+  }
+
+  if (outfit === "pajamas") {
+    context.strokeStyle = "rgba(255,239,169,0.72)";
+    context.lineWidth = Math.max(1, drawSize * 0.006);
+    for (const [x, y] of [
+      [-0.11, 0.1],
+      [0.1, 0.18],
+      [-0.03, 0.28],
+    ]) {
+      context.beginPath();
+      context.arc(
+        x * drawSize,
+        (fit.bodyY - 0.05 + y) * drawSize,
+        drawSize * 0.018,
+        -Math.PI * 0.45,
+        Math.PI * 0.55,
+      );
+      context.stroke();
+    }
+  }
+
+  if (outfit === "chef" || outfit === "detective") {
+    context.fillStyle =
+      outfit === "chef"
+        ? "rgba(174,113,69,0.58)"
+        : "rgba(87,57,42,0.5)";
+    for (const y of [0.08, 0.15, 0.22]) {
+      fillEllipse(
+        context,
+        0,
+        (fit.bodyY - 0.04 + y) * drawSize,
+        drawSize * 0.008,
+        drawSize * 0.008,
+        context.fillStyle as string,
+      );
+    }
+  }
+
+  context.restore();
+
+  context.save();
+  context.strokeStyle = "rgba(77,45,32,0.2)";
+  context.lineWidth = Math.max(1, drawSize * 0.006);
+  context.beginPath();
+  context.moveTo(-bodyWidth * 0.32, hemY);
+  context.quadraticCurveTo(0, hemY + drawSize * 0.016, bodyWidth * 0.32, hemY);
+  context.stroke();
+  context.restore();
+}
+
+function drawStageOcclusion(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  stage: GrowthStageId,
+  fit: StageFit,
+  drawSize: number,
+) {
+  const headHeight = Math.max(0.16, (fit.neckY - fit.headY) * 0.9);
+  const armY = (fit.bodyY - (stage === "child" ? 0.055 : 0.075)) * drawSize;
+  const armX =
+    fit.bodyW * drawSize * (stage === "teen" ? 0.57 : stage === "child" ? 0.6 : 0.55);
+  const footY = (fit.groundY - 0.018) * drawSize;
+  const footX = fit.bodyW * drawSize * (stage === "teen" ? 0.29 : 0.27);
+
+  context.save();
+  context.beginPath();
+  context.ellipse(
+    0,
+    fit.headY * drawSize,
+    fit.headW * drawSize * 0.53,
+    headHeight * drawSize,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  for (const direction of [-1, 1]) {
+    context.ellipse(
+      direction * armX,
+      armY,
+      drawSize * (stage === "child" ? 0.07 : 0.065),
+      drawSize * (stage === "teen" ? 0.12 : 0.105),
+      direction * -0.08,
+      0,
+      Math.PI * 2,
+    );
+    context.ellipse(
+      direction * footX,
+      footY,
+      drawSize * (stage === "teen" ? 0.085 : 0.075),
+      drawSize * 0.055,
+      0,
+      0,
+      Math.PI * 2,
+    );
+  }
+  if (stage === "senior") {
+    context.rect(
+      -fit.bodyW * drawSize * 0.78,
+      (fit.neckY - 0.03) * drawSize,
+      drawSize * 0.15,
+      (fit.groundY - fit.neckY + 0.08) * drawSize,
+    );
+  }
+  context.clip();
+  drawStageSprite(context, image, drawSize);
+  context.restore();
+}
+
+function drawOutfitAccessoryFront(
+  context: CanvasRenderingContext2D,
+  outfit: OutfitId,
+  stage: GrowthStageId,
+  fit: StageFit,
+  drawSize: number,
+) {
+  const neckY = fit.neckY * drawSize;
+  const bodyWidth = fit.bodyW * drawSize;
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  if (outfit === "classic") {
+    drawBeret(context, fit, drawSize, stage);
+  } else if (outfit === "scarf") {
+    const scarf = context.createLinearGradient(0, neckY - drawSize * 0.04, 0, neckY + drawSize * 0.12);
+    scarf.addColorStop(0, "#d2874b");
+    scarf.addColorStop(1, "#93452a");
+    fillEllipse(
+      context,
+      0,
+      neckY,
+      bodyWidth * 0.43,
+      drawSize * (stage === "child" ? 0.052 : 0.045),
+      scarf,
+      "rgba(105,48,29,0.4)",
+      Math.max(1, drawSize * 0.005),
+    );
+  } else if (outfit === "berry") {
+    drawBow(
+      context,
+      stage === "teen" ? -drawSize * 0.055 : 0,
+      neckY + drawSize * 0.02,
+      drawSize * (stage === "child" ? 0.055 : 0.042),
+      "#f7b1c1",
+    );
+  } else if (outfit === "raincoat") {
+    context.beginPath();
+    context.arc(
+      0,
+      fit.headY * drawSize,
+      fit.headW * drawSize * 0.43,
+      Math.PI * 0.86,
+      Math.PI * 0.14,
+    );
+    context.strokeStyle = "rgba(239,184,38,0.9)";
+    context.lineWidth = drawSize * 0.026;
+    context.stroke();
+  } else if (outfit === "sailor") {
+    drawBow(context, 0, neckY + drawSize * 0.08, drawSize * 0.031, "#d95e58");
+  } else if (outfit === "bee") {
+    context.strokeStyle = "#5a4027";
+    context.lineWidth = Math.max(1, drawSize * 0.008);
+    for (const direction of [-1, 1]) {
+      context.beginPath();
+      context.moveTo(direction * drawSize * 0.055, (fit.hatY - 0.01) * drawSize);
+      context.lineTo(direction * drawSize * 0.075, (fit.hatY - 0.075) * drawSize);
+      context.stroke();
+      fillEllipse(
+        context,
+        direction * drawSize * 0.078,
+        (fit.hatY - 0.08) * drawSize,
+        drawSize * 0.014,
+        drawSize * 0.014,
+        "#5a4027",
+      );
+    }
+  } else if (outfit === "wizard") {
+    context.translate(0, (fit.hatY - 0.035) * drawSize);
+    context.rotate(stage === "teen" ? -0.08 : stage === "senior" ? 0.04 : -0.025);
+    context.fillStyle = "#513778";
+    context.beginPath();
+    context.moveTo(-drawSize * 0.16, drawSize * 0.035);
+    context.lineTo(drawSize * 0.03, -drawSize * 0.235);
+    context.lineTo(drawSize * 0.15, drawSize * 0.035);
+    context.closePath();
+    context.fill();
+    fillEllipse(context, 0, drawSize * 0.035, drawSize * 0.19, drawSize * 0.04, "#604487");
+    drawStar(context, drawSize * 0.02, -drawSize * 0.09, drawSize * 0.032, "#ffd86b");
+  } else if (outfit === "royal") {
+    const crownY = (fit.hatY - 0.045) * drawSize;
+    const crownW = fit.headW * drawSize * (stage === "child" ? 0.26 : 0.3);
+    context.beginPath();
+    context.moveTo(-crownW / 2, crownY + drawSize * 0.07);
+    context.lineTo(-crownW * 0.43, crownY);
+    context.lineTo(-crownW * 0.16, crownY + drawSize * 0.045);
+    context.lineTo(0, crownY - drawSize * 0.03);
+    context.lineTo(crownW * 0.16, crownY + drawSize * 0.045);
+    context.lineTo(crownW * 0.43, crownY);
+    context.lineTo(crownW / 2, crownY + drawSize * 0.07);
+    context.closePath();
+    context.fillStyle = "#f2c14d";
+    context.fill();
+    context.strokeStyle = "#a86c21";
+    context.lineWidth = Math.max(1, drawSize * 0.006);
+    context.stroke();
+  } else if (outfit === "pajamas") {
+    context.translate(-drawSize * 0.015, (fit.hatY - 0.025) * drawSize);
+    context.rotate(stage === "child" ? -0.12 : 0.05);
+    context.fillStyle = "#556ca9";
+    context.beginPath();
+    context.moveTo(-drawSize * 0.145, drawSize * 0.035);
+    context.quadraticCurveTo(0, -drawSize * 0.17, drawSize * 0.15, drawSize * 0.035);
+    context.quadraticCurveTo(0, drawSize * 0.08, -drawSize * 0.145, drawSize * 0.035);
+    context.fill();
+    fillEllipse(context, drawSize * 0.145, drawSize * 0.03, drawSize * 0.025, drawSize * 0.025, "#f7e6a8");
+  } else if (outfit === "chef") {
+    const chefY = (fit.hatY - 0.055) * drawSize;
+    fillEllipse(context, 0, chefY, drawSize * 0.15, drawSize * 0.055, "#fffdf2");
+    for (const x of [-0.075, 0, 0.075]) {
+      fillEllipse(
+        context,
+        x * drawSize,
+        chefY - drawSize * 0.05,
+        drawSize * 0.065,
+        drawSize * 0.075,
+        "#fffdf2",
+        "rgba(140,101,76,0.16)",
+        Math.max(1, drawSize * 0.004),
+      );
+    }
+  } else if (outfit === "detective") {
+    context.translate(0, fit.hatY * drawSize);
+    context.rotate(stage === "teen" ? -0.075 : 0.02);
+    fillEllipse(context, 0, 0, drawSize * 0.17, drawSize * 0.052, "#8a6244");
+    fillEllipse(context, -drawSize * 0.052, -drawSize * 0.035, drawSize * 0.105, drawSize * 0.07, "#a77a55");
+    fillEllipse(context, drawSize * 0.052, -drawSize * 0.035, drawSize * 0.105, drawSize * 0.07, "#a77a55");
+  } else if (outfit === "banana") {
+    roundedRect(
+      context,
+      -drawSize * 0.018,
+      (fit.hatY - 0.09) * drawSize,
+      drawSize * 0.036,
+      drawSize * 0.075,
+      drawSize * 0.012,
+    );
+    context.fillStyle = "#6b4a22";
+    context.fill();
+  } else if (outfit === "sushi") {
+    context.translate(0, (fit.hatY + 0.01) * drawSize);
+    context.rotate(-0.06);
+    roundedRect(
+      context,
+      -drawSize * 0.16,
+      -drawSize * 0.035,
+      drawSize * 0.32,
+      drawSize * 0.095,
+      drawSize * 0.04,
+    );
+    const shrimp = context.createLinearGradient(-drawSize * 0.16, 0, drawSize * 0.16, 0);
+    shrimp.addColorStop(0, "#f19c7f");
+    shrimp.addColorStop(0.5, "#fff0dc");
+    shrimp.addColorStop(1, "#df796d");
+    context.fillStyle = shrimp;
+    context.fill();
+  } else if (outfit === "ufo") {
+    context.beginPath();
+    context.arc(
+      0,
+      fit.headY * drawSize,
+      fit.headW * drawSize * 0.39,
+      Math.PI,
+      0,
+    );
+    context.strokeStyle = "rgba(220,244,250,0.78)";
+    context.lineWidth = drawSize * 0.018;
+    context.stroke();
+  }
+
+  context.restore();
+}
+
 function drawMovementEffects(
   context: CanvasRenderingContext2D,
   fit: StageFit,
@@ -1415,236 +1777,290 @@ function drawActionProps(
   context.restore();
 }
 
-function motionFor(
+function softMeshPoseFor(
   time: number,
   state: RenderMotion,
   stage: GrowthStageId,
   petted: boolean,
-): DrawMotion {
+  transition: PoseTransition,
+  transitionStartedAt: number,
+): SoftMeshPose {
   const placement = STAGE_PLACEMENT[stage];
   const idleTime = time * placement.idleSpeed;
   const slow = Math.sin(idleTime * 0.002);
-  const medium = Math.sin(idleTime * 0.0044);
-  const fast = Math.sin(idleTime * 0.0085);
-  const base: DrawMotion = {
-    x: 0,
-    y: slow * 0.004,
-    rotation: slow * 0.004,
-    scaleX: 1 + slow * 0.005,
-    scaleY: 1 - slow * 0.004,
-    skewX: 0,
+  const medium = Math.sin(idleTime * 0.0045);
+  const fast = Math.sin(idleTime * 0.009);
+  const transitionMotion = transitionMotionFor(
+    time,
+    transition,
+    transitionStartedAt,
+  );
+  const pose: SoftMeshPose = {
+    ...STILL_SOFT_MESH_POSE,
+    x: transitionMotion.x,
+    y: transitionMotion.y,
+    rotation: transitionMotion.rotation,
+    scaleX: 1 + (transitionMotion.scaleX - 1) * 0.28,
+    scaleY: 1 + (transitionMotion.scaleY - 1) * 0.28,
+    bodyBreath: slow * 0.009,
+    bodyStretch: -slow * 0.004,
+    headAngle: slow * 0.006,
+    leftEarY: slow * 0.002,
+    rightEarY: -slow * 0.002,
   };
+
+  const ageStrength: Record<GrowthStageId, number> = {
+    child: 1.08,
+    teen: 1.18,
+    adult: 1,
+    middle: 0.78,
+    senior: 0.58,
+  };
+  const strength = ageStrength[stage];
 
   if (state.moving) {
     const stride = Math.sin(time * 0.009 * placement.walkSpeed);
-    const contact = Math.abs(Math.sin(time * 0.018 * placement.walkSpeed));
-    const stageLift: Record<GrowthStageId, number> = {
-      child: 0.028,
-      teen: 0.034,
-      adult: 0.025,
-      middle: 0.018,
-      senior: 0.011,
-    };
-    const stageSway: Record<GrowthStageId, number> = {
-      child: 0.04,
-      teen: 0.026,
-      adult: 0.018,
-      middle: 0.014,
-      senior: 0.009,
-    };
-    return {
-      x: stride * 0.004,
-      y: -contact * stageLift[stage],
-      rotation:
-        stride * stageSway[stage] -
-        state.direction * (stage === "senior" ? 0.01 : 0.018),
-      scaleX: 1 + contact * 0.014,
-      scaleY: 1 - contact * 0.02,
-      skewX: -state.direction * (0.018 + contact * 0.018),
-    };
+    const oppositeStride = Math.sin(
+      time * 0.009 * placement.walkSpeed + Math.PI,
+    );
+    const leftLift = Math.max(0, stride);
+    const rightLift = Math.max(0, oppositeStride);
+    const contact = Math.max(leftLift, rightLift);
+    pose.y -= contact * (stage === "senior" ? 0.006 : 0.014) * strength;
+    pose.bodyLean = stride * 0.012 * strength;
+    pose.headY = -contact * 0.006 * strength;
+    pose.headAngle =
+      stride * 0.012 * strength -
+      state.direction * (stage === "senior" ? 0.006 : 0.011);
+    pose.leftArmY = -rightLift * 0.018 * strength;
+    pose.rightArmY = -leftLift * 0.018 * strength;
+    pose.leftArmX = stride * 0.006 * strength;
+    pose.rightArmX = oppositeStride * 0.006 * strength;
+    pose.leftFootX = -stride * 0.013 * strength;
+    pose.leftFootY = -leftLift * 0.03 * strength;
+    pose.rightFootX = -oppositeStride * 0.013 * strength;
+    pose.rightFootY = -rightLift * 0.03 * strength;
+    pose.leftEarY = stride * 0.009 * strength;
+    pose.rightEarY = oppositeStride * 0.009 * strength;
+    return pose;
   }
 
   const actionSpeed: Record<GrowthStageId, number> = {
-    child: 1.1,
+    child: 1.08,
     teen: 1.22,
     adult: 1,
     middle: 0.78,
     senior: 0.62,
   };
   const actionTime = time * actionSpeed[stage];
-  const actionMedium = Math.sin(actionTime * 0.0046);
-  const actionFast = Math.sin(actionTime * 0.009);
+  const actionSlow = Math.sin(actionTime * 0.0047);
+  const actionFast = Math.sin(actionTime * 0.0095);
+  const actionPulse = Math.abs(actionFast);
 
   if (state.action === "feed") {
-    return {
-      ...base,
-      y: actionMedium * 0.009,
-      rotation: actionMedium * (stage === "child" ? 0.018 : 0.01),
-      scaleX: 1 + actionFast * 0.011,
-      scaleY: 1 - actionFast * 0.015,
-    };
+    pose.headY = actionPulse * 0.009 * strength;
+    pose.headAngle = actionFast * 0.012 * strength;
+    pose.leftArmX = 0.024 * strength;
+    pose.rightArmX = -0.024 * strength;
+    pose.leftArmY = (-0.038 - actionPulse * 0.012) * strength;
+    pose.rightArmY = (-0.038 - actionPulse * 0.012) * strength;
+    pose.bodyBreath += actionFast * 0.004;
+    return pose;
   }
+
   if (state.action === "bath") {
-    return {
-      ...base,
-      x: actionFast * (stage === "senior" ? 0.003 : 0.007),
-      y: actionMedium * 0.007,
-      rotation: actionMedium * (stage === "teen" ? 0.03 : 0.019),
-    };
+    pose.bodyLean = actionFast * 0.016 * strength;
+    pose.headAngle = -actionFast * 0.022 * strength;
+    pose.leftEarX = -actionFast * 0.012 * strength;
+    pose.rightEarX = -actionFast * 0.012 * strength;
+    pose.leftEarY = actionFast * 0.014 * strength;
+    pose.rightEarY = -actionFast * 0.014 * strength;
+    pose.leftArmX = -0.018 * strength;
+    pose.rightArmX = 0.018 * strength;
+    pose.leftArmY = -actionPulse * 0.015 * strength;
+    pose.rightArmY = -actionPulse * 0.015 * strength;
+    return pose;
   }
+
   if (state.action === "play") {
-    const lift: Record<GrowthStageId, number> = {
-      child: 0.03,
-      teen: 0.05,
-      adult: 0.038,
-      middle: 0.024,
-      senior: 0.014,
-    };
-    return {
-      ...base,
-      y: -Math.abs(actionMedium) * lift[stage],
-      rotation: actionMedium * (stage === "teen" ? 0.026 : 0.016),
-      scaleX: 1 + Math.abs(actionFast) * 0.012,
-      scaleY: 1 - Math.abs(actionFast) * 0.014,
-    };
+    pose.y -= actionPulse * (stage === "senior" ? 0.012 : 0.03) * strength;
+    pose.headAngle = actionSlow * 0.018 * strength;
+    pose.bodyLean = actionSlow * 0.014 * strength;
+    pose.leftArmY = -Math.max(0, actionFast) * 0.035 * strength;
+    pose.rightArmY =
+      -Math.max(0, -actionFast) * 0.035 * strength;
+    pose.leftFootY = -Math.max(0, -actionFast) * 0.025 * strength;
+    pose.rightFootY = -Math.max(0, actionFast) * 0.025 * strength;
+    pose.leftEarY = actionFast * 0.012 * strength;
+    pose.rightEarY = -actionFast * 0.012 * strength;
+    return pose;
   }
+
   if (state.action === "sleep") {
-    return {
-      ...base,
-      y: 0.035 + slow * 0.004,
-      rotation: stage === "child" ? -0.075 : stage === "senior" ? -0.055 : -0.04,
-      scaleX: 1.025,
-      scaleY: 0.93 + slow * 0.008,
-    };
+    pose.y += 0.014;
+    pose.bodyBreath = slow * 0.012;
+    pose.bodyStretch = -0.026;
+    pose.bodyLean = stage === "child" ? -0.024 : -0.016;
+    pose.headAngle = stage === "senior" ? -0.042 : -0.055;
+    pose.headY = 0.018;
+    pose.leftEarY = 0.016 + slow * 0.003;
+    pose.rightEarY = 0.018 - slow * 0.003;
+    pose.leftArmY = 0.014;
+    pose.rightArmY = 0.014;
+    return pose;
   }
-  if (state.action) {
-    return {
-      ...base,
-      y: -Math.abs(actionMedium) * (stage === "senior" ? 0.012 : 0.025),
-      rotation: actionMedium * (stage === "teen" ? 0.027 : 0.016),
-    };
+
+  if (state.action === "gift") {
+    pose.y -= actionPulse * 0.02 * strength;
+    pose.headAngle = actionSlow * 0.016;
+    pose.leftArmX = 0.026 * strength;
+    pose.rightArmX = -0.026 * strength;
+    pose.leftArmY = -0.045 * strength;
+    pose.rightArmY = -0.045 * strength;
+    return pose;
+  }
+
+  if (state.action === "level") {
+    pose.y -= actionPulse * 0.032 * strength;
+    pose.headAngle = actionFast * 0.022 * strength;
+    pose.leftArmX = -0.016 * strength;
+    pose.rightArmX = 0.016 * strength;
+    pose.leftArmY = -0.042 * strength;
+    pose.rightArmY = -0.042 * strength;
+    pose.leftFootY = -Math.max(0, actionFast) * 0.018;
+    pose.rightFootY = -Math.max(0, -actionFast) * 0.018;
+    return pose;
+  }
+
+  if (state.action === "event") {
+    pose.headAngle = -0.035 + actionSlow * 0.012;
+    pose.headX = actionSlow * 0.006;
+    pose.leftEarY = 0.006;
+    pose.rightEarY = -0.006;
+    pose.leftArmY = -0.012;
+    return pose;
+  }
+
+  if (state.action === "baby") {
+    pose.headY = actionPulse * 0.006;
+    pose.headAngle = actionSlow * 0.012;
+    pose.leftArmX = 0.032 * strength;
+    pose.rightArmX = -0.032 * strength;
+    pose.leftArmY = -0.02 * strength;
+    pose.rightArmY = -0.02 * strength;
+    pose.bodyBreath += slow * 0.006;
+    return pose;
   }
 
   if (petted || state.idlePose === "delighted") {
-    return {
-      ...base,
-      y: -Math.abs(fast) * (stage === "senior" ? 0.01 : 0.022),
-      rotation: medium * 0.018,
-      scaleX: 1 + Math.abs(fast) * 0.012,
-      scaleY: 1 - Math.abs(fast) * 0.01,
-    };
+    pose.y -= actionPulse * (stage === "senior" ? 0.008 : 0.018) * strength;
+    pose.headY = -actionPulse * 0.01 * strength;
+    pose.headAngle = actionSlow * 0.018 * strength;
+    pose.leftEarY = actionFast * 0.012 * strength;
+    pose.rightEarY = -actionFast * 0.012 * strength;
+    pose.leftArmY = -actionPulse * 0.018 * strength;
+    pose.rightArmY = -actionPulse * 0.018 * strength;
+    return pose;
   }
-  if (state.condition === "radiant") {
-    return {
-      ...base,
-      y: -Math.abs(medium) * (stage === "senior" ? 0.008 : 0.017),
-      rotation: medium * 0.01,
-    };
-  }
+
   if (state.condition === "hungry") {
-    return { ...base, y: 0.02 + slow * 0.006, scaleX: 1.012, scaleY: 0.96 };
-  }
-  if (state.condition === "lonely") {
-    return {
-      ...base,
-      y: 0.025 + slow * 0.005,
-      rotation: medium * 0.011,
-      scaleY: 0.955,
-    };
-  }
-  if (state.condition === "dirty") {
-    return { ...base, x: fast * 0.007, rotation: fast * 0.014 };
-  }
-  if (state.condition === "critical") {
-    return {
-      ...base,
-      y: 0.028 + slow * 0.004,
-      rotation: medium * 0.008,
-      scaleY: 0.945,
-    };
+    pose.y += 0.014;
+    pose.bodyStretch = -0.018;
+    pose.leftArmX = 0.014;
+    pose.rightArmX = -0.014;
+    pose.headY = 0.008;
+  } else if (state.condition === "lonely") {
+    pose.y += 0.016;
+    pose.headAngle = 0.025;
+    pose.headY = 0.012;
+    pose.leftEarY = 0.014;
+    pose.rightEarY = 0.014;
+    pose.leftArmY = 0.009;
+    pose.rightArmY = 0.009;
+  } else if (state.condition === "dirty") {
+    pose.bodyLean = fast * 0.012;
+    pose.leftArmY = -Math.max(0, fast) * 0.018;
+    pose.rightArmY = -Math.max(0, -fast) * 0.018;
+  } else if (state.condition === "sleepy") {
+    pose.headY = 0.01 + Math.max(0, slow) * 0.008;
+    pose.headAngle = -0.02;
+    pose.leftEarY = 0.01;
+    pose.rightEarY = 0.01;
+  } else if (state.condition === "critical") {
+    pose.y += 0.022;
+    pose.bodyStretch = -0.025;
+    pose.headY = 0.016;
+    pose.headAngle = slow * 0.009;
+    pose.leftEarY = 0.018;
+    pose.rightEarY = 0.018;
+  } else if (state.condition === "radiant") {
+    pose.y -= Math.abs(medium) * 0.01 * strength;
+    pose.leftEarY = fast * 0.007;
+    pose.rightEarY = -fast * 0.007;
   }
 
   if (state.idlePose === "curious") {
-    return { ...base, y: slow * 0.006, rotation: -0.045 + slow * 0.012 };
+    pose.headAngle += -0.045 + slow * 0.012;
+    pose.headX = 0.005;
+    pose.leftEarY -= 0.007;
+    pose.rightEarY += 0.008;
+  } else if (state.idlePose === "sniff") {
+    pose.headX = fast * 0.008;
+    pose.headY = Math.max(0, fast) * 0.006;
+    pose.headAngle += fast * 0.008;
+  } else if (state.idlePose === "sway") {
+    pose.bodyLean += medium * 0.022 * strength;
+    pose.headAngle -= medium * 0.014 * strength;
+    pose.leftArmY = -Math.max(0, medium) * 0.012;
+    pose.rightArmY = -Math.max(0, -medium) * 0.012;
+  } else if (state.idlePose === "toddle") {
+    pose.y -= Math.abs(fast) * 0.012;
+    pose.bodyLean += medium * 0.026;
+    pose.leftFootY = -Math.max(0, fast) * 0.02;
+    pose.rightFootY = -Math.max(0, -fast) * 0.02;
+    pose.leftArmY = -Math.max(0, -fast) * 0.014;
+    pose.rightArmY = -Math.max(0, fast) * 0.014;
+  } else if (state.idlePose === "energetic") {
+    pose.y -= Math.abs(medium) * 0.026;
+    pose.headY = -Math.abs(medium) * 0.007;
+    pose.leftArmY = -Math.max(0, fast) * 0.03;
+    pose.rightArmY = -Math.max(0, -fast) * 0.03;
+    pose.leftFootY = -Math.max(0, -fast) * 0.018;
+    pose.rightFootY = -Math.max(0, fast) * 0.018;
+  } else if (state.idlePose === "stretch") {
+    pose.bodyStretch += 0.026 + slow * 0.006;
+    pose.bodyBreath -= 0.014;
+    pose.headY = -0.012;
+    pose.leftArmX = -0.016;
+    pose.rightArmX = 0.016;
+    pose.leftArmY = -0.018;
+    pose.rightArmY = -0.018;
+  } else if (state.idlePose === "glasses") {
+    pose.headAngle += -0.018 + Math.max(0, fast) * 0.015;
+    pose.leftArmX = 0.018;
+    pose.leftArmY = -0.026;
+  } else if (state.idlePose === "cane") {
+    pose.bodyLean += -0.015 + medium * 0.006;
+    pose.headAngle += 0.012;
+    pose.leftArmY = Math.max(0, medium) * 0.005;
+  } else if (state.idlePose === "doze" || state.idlePose === "nap") {
+    pose.y += 0.012;
+    pose.bodyStretch -= 0.018;
+    pose.headAngle += -0.035;
+    pose.headY = 0.012;
+    pose.leftEarY = 0.012;
+    pose.rightEarY = 0.012;
+  } else if (state.idlePose === "selfplay") {
+    pose.headAngle += medium * 0.014;
+    pose.leftArmX = 0.02;
+    pose.rightArmX = -0.02;
+    pose.leftArmY = -Math.max(0, fast) * 0.024;
+    pose.rightArmY = -Math.max(0, -fast) * 0.024;
+    pose.leftFootY = -Math.max(0, -fast) * 0.012;
+    pose.rightFootY = -Math.max(0, fast) * 0.012;
   }
-  if (state.idlePose === "sniff") {
-    return { ...base, x: fast * 0.007, rotation: fast * 0.012 };
-  }
-  if (state.idlePose === "sway") {
-    return { ...base, x: medium * 0.011, rotation: medium * 0.024 };
-  }
-  if (state.idlePose === "toddle") {
-    return {
-      ...base,
-      x: medium * 0.01,
-      y: -Math.abs(fast) * 0.019,
-      rotation: medium * 0.038,
-    };
-  }
-  if (state.idlePose === "energetic") {
-    return {
-      ...base,
-      y: -Math.abs(medium) * 0.032,
-      rotation: medium * 0.025,
-      scaleX: 1 + Math.abs(fast) * 0.012,
-      scaleY: 1 - Math.abs(fast) * 0.015,
-    };
-  }
-  if (state.idlePose === "stretch") {
-    return {
-      ...base,
-      y: -0.01 + slow * 0.005,
-      rotation: -0.018 + slow * 0.01,
-      scaleX: 0.98 - slow * 0.006,
-      scaleY: 1.035 + slow * 0.012,
-    };
-  }
-  if (state.idlePose === "glasses") {
-    return {
-      ...base,
-      y: slow * 0.004,
-      rotation: -0.018 + Math.max(0, fast) * 0.018,
-    };
-  }
-  if (state.idlePose === "cane") {
-    return {
-      ...base,
-      x: medium * 0.004,
-      y: Math.max(0, medium) * 0.006,
-      rotation: -0.016 + medium * 0.008,
-    };
-  }
-  if (state.idlePose === "doze" || state.idlePose === "nap") {
-    return {
-      ...base,
-      y: 0.02 + slow * 0.004,
-      rotation: -0.035,
-      scaleY: 0.965 + slow * 0.006,
-    };
-  }
-  if (state.idlePose === "selfplay") {
-    return {
-      ...base,
-      x: medium * 0.008,
-      y: -Math.abs(fast) * 0.018,
-      rotation: medium * 0.02,
-    };
-  }
-  return base;
-}
 
-function scaleDrawMotion(
-  motion: DrawMotion,
-  strength: number,
-): DrawMotion {
-  return {
-    x: motion.x * strength,
-    y: motion.y * strength,
-    rotation: motion.rotation * strength,
-    scaleX: 1 + (motion.scaleX - 1) * strength,
-    scaleY: 1 + (motion.scaleY - 1) * strength,
-    skewX: motion.skewX * strength,
-  };
+  return pose;
 }
 
 function transitionMotionFor(
@@ -1703,6 +2119,103 @@ function drawStageSprite(
     drawSize,
     drawSize,
   );
+}
+
+function softMeshLandmarksFor(stage: GrowthStageId): SoftMeshLandmarks {
+  const fit = STAGE_FIT[stage];
+  const placement = STAGE_PLACEMENT[stage];
+  const scale = 1.075 * placement.overall;
+  const centerY = 0.5 + placement.y;
+  const headY = centerY + fit.headY * scale;
+  const bodyY = centerY + fit.bodyY * scale;
+  const armY =
+    centerY +
+    (fit.bodyY - (stage === "child" ? 0.055 : 0.075)) * scale;
+  const footY = centerY + (fit.groundY - 0.018) * scale;
+  const armX =
+    fit.bodyW * scale * (stage === "teen" ? 0.57 : stage === "child" ? 0.6 : 0.55);
+  const footX = fit.bodyW * scale * (stage === "teen" ? 0.29 : 0.27);
+  const earX = fit.headW * scale * 0.43;
+
+  return {
+    head: {
+      x: 0.5,
+      y: headY,
+      radiusX: fit.headW * scale * 0.34,
+      radiusY: Math.max(0.115, (fit.neckY - fit.headY) * scale * 0.72),
+    },
+    body: {
+      x: 0.5,
+      y: bodyY,
+      radiusX: fit.bodyW * scale * 0.52,
+      radiusY: fit.bodyH * scale * 0.46,
+    },
+    leftEar: {
+      x: 0.5 - earX,
+      y: headY + 0.008,
+      radiusX: fit.headW * scale * 0.19,
+      radiusY: 0.105 * scale,
+    },
+    rightEar: {
+      x: 0.5 + earX,
+      y: headY + 0.008,
+      radiusX: fit.headW * scale * 0.19,
+      radiusY: 0.105 * scale,
+    },
+    leftArm: {
+      x: 0.5 - armX,
+      y: armY,
+      radiusX: 0.075 * scale,
+      radiusY: 0.11 * scale,
+    },
+    rightArm: {
+      x: 0.5 + armX,
+      y: armY,
+      radiusX: 0.075 * scale,
+      radiusY: 0.11 * scale,
+    },
+    leftFoot: {
+      x: 0.5 - footX,
+      y: footY,
+      radiusX: 0.095 * scale,
+      radiusY: 0.07 * scale,
+    },
+    rightFoot: {
+      x: 0.5 + footX,
+      y: footY,
+      radiusX: 0.095 * scale,
+      radiusY: 0.07 * scale,
+    },
+  };
+}
+
+function drawCompositeTexture(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  stage: GrowthStageId,
+  outfit: OutfitId,
+  environment: string,
+  size: number,
+) {
+  const placement = STAGE_PLACEMENT[stage];
+  const fit = STAGE_FIT[stage];
+  const drawSize = size * 1.075 * placement.overall;
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, size, size);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.save();
+  context.translate(size * 0.5, size * (0.5 + placement.y));
+  drawOutfitBack(context, outfit, stage, fit, drawSize);
+  drawStageSprite(context, image, drawSize);
+  drawOutfitFront(context, outfit, stage, fit, drawSize);
+  drawGarmentFinish(context, outfit, stage, fit, drawSize);
+  if (outfit !== "soft" && outfit !== "classic") {
+    drawStageOcclusion(context, image, stage, fit, drawSize);
+    drawOutfitAccessoryFront(context, outfit, stage, fit, drawSize);
+  }
+  applyEnvironmentTint(context, drawSize, environment);
+  context.restore();
 }
 
 function applyEnvironmentTint(
@@ -1785,6 +2298,7 @@ export function PurinMascot({
   dragging = false,
 }: PurinMascotProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fxCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const petTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const poseTransitionStarted = useRef(0);
@@ -1857,9 +2371,8 @@ export function PurinMascot({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext("2d", { alpha: true });
-    if (!context) return;
+    const fxCanvas = fxCanvasRef.current;
+    if (!canvas || !fxCanvas) return;
 
     let cancelled = false;
     let animationFrame = 0;
@@ -1867,58 +2380,68 @@ export function PurinMascot({
     let width = 0;
     let height = 0;
     let pixelRatio = 1;
+    const textureSize = preview ? 640 : 960;
+    const textureCanvas = document.createElement("canvas");
+    textureCanvas.width = textureSize;
+    textureCanvas.height = textureSize;
+    const textureContext = textureCanvas.getContext("2d", { alpha: true });
+    if (!textureContext) return;
+
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
     const shouldAnimate = !prefersReducedMotion && !preview;
+    const meshRenderer = shouldAnimate
+      ? createSoftMeshRenderer(canvas)
+      : null;
+    const staticContext = meshRenderer
+      ? null
+      : canvas.getContext("2d", { alpha: true });
+    const fxContext = fxCanvas.getContext("2d", { alpha: true });
+    if (!meshRenderer && !staticContext) return;
+    if (!fxContext) return;
+    const landmarks = softMeshLandmarksFor(effectiveStage);
 
     const paint = (time: number) => {
       if (cancelled || !baseImage || width <= 0 || height <= 0) return;
-      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-      context.clearRect(0, 0, width, height);
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = "high";
-
       const placement = STAGE_PLACEMENT[effectiveStage];
       const fit = STAGE_FIT[effectiveStage];
-      const motion = scaleDrawMotion(
-        motionFor(time, renderMotion, effectiveStage, petted),
-        placement.motion,
-      );
-      const transitionMotion = transitionMotionFor(
+      const pose = softMeshPoseFor(
         time,
+        renderMotion,
+        effectiveStage,
+        petted,
         prefersReducedMotion ? "steady" : poseTransition,
         poseTransitionStarted.current,
       );
       const drawSize =
         Math.min(width, height) * 1.075 * placement.overall;
 
-      context.save();
-      context.globalAlpha = condition === "critical" ? 0.9 : 1;
-      context.translate(
-        width * (0.5 + motion.x + transitionMotion.x),
-        height * (0.5 + placement.y + motion.y + transitionMotion.y),
-      );
-      context.rotate(motion.rotation + transitionMotion.rotation);
-      context.transform(
-        1,
-        0,
-        motion.skewX + transitionMotion.skewX,
-        1,
-        0,
-        0,
-      );
-      context.scale(
-        motion.scaleX * transitionMotion.scaleX,
-        motion.scaleY * transitionMotion.scaleY,
-      );
-      if (renderMotion.moving) {
-        context.scale(renderMotion.direction, 1);
+      if (meshRenderer) {
+        meshRenderer.render(landmarks, pose, renderMotion.direction);
+      } else if (staticContext) {
+        staticContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        staticContext.clearRect(0, 0, width, height);
+        staticContext.imageSmoothingEnabled = true;
+        staticContext.imageSmoothingQuality = "high";
+        staticContext.drawImage(textureCanvas, 0, 0, width, height);
       }
 
+      fxContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      fxContext.clearRect(0, 0, width, height);
+      fxContext.imageSmoothingEnabled = true;
+      fxContext.imageSmoothingQuality = "high";
+      fxContext.save();
+      fxContext.translate(
+        width * (0.5 + pose.x),
+        height * (0.5 + placement.y + pose.y),
+      );
+      fxContext.rotate(pose.rotation);
+      fxContext.scale(pose.scaleX, pose.scaleY);
+      if (renderMotion.direction < 0) fxContext.scale(-1, 1);
       if (renderMotion.moving) {
         drawMovementEffects(
-          context,
+          fxContext,
           fit,
           drawSize,
           time,
@@ -1926,11 +2449,8 @@ export function PurinMascot({
           renderMotion.direction,
         );
       }
-      drawOutfitBack(context, outfit, effectiveStage, fit, drawSize);
-      drawStageSprite(context, baseImage, drawSize);
-      drawOutfitFront(context, outfit, effectiveStage, fit, drawSize);
       drawActionProps(
-        context,
+        fxContext,
         renderMotion.action,
         renderMotion.idlePose,
         effectiveStage,
@@ -1938,8 +2458,7 @@ export function PurinMascot({
         drawSize,
         time,
       );
-      applyEnvironmentTint(context, drawSize, environment);
-      context.restore();
+      fxContext.restore();
     };
 
     const resize = () => {
@@ -1953,6 +2472,13 @@ export function PurinMascot({
         canvas.width = nextWidth;
         canvas.height = nextHeight;
       }
+      if (
+        fxCanvas.width !== nextWidth ||
+        fxCanvas.height !== nextHeight
+      ) {
+        fxCanvas.width = nextWidth;
+        fxCanvas.height = nextHeight;
+      }
       paint(performance.now());
     };
 
@@ -1965,6 +2491,15 @@ export function PurinMascot({
       .then((loadedBase) => {
         if (cancelled) return;
         baseImage = loadedBase;
+        drawCompositeTexture(
+          textureContext,
+          loadedBase,
+          effectiveStage,
+          outfit,
+          environment,
+          textureSize,
+        );
+        meshRenderer?.upload(textureCanvas);
         resize();
         if (shouldAnimate) {
           animationFrame = window.requestAnimationFrame(loop);
@@ -1984,6 +2519,7 @@ export function PurinMascot({
       observer?.disconnect();
       window.removeEventListener("resize", resize);
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      meshRenderer?.destroy();
     };
   }, [
     condition,
@@ -2083,6 +2619,11 @@ export function PurinMascot({
           <span className="mascot-ground-shadow" aria-hidden="true" />
           <span className="mascot-environment-glow" aria-hidden="true" />
           <canvas ref={canvasRef} className="mascot-canvas" aria-hidden="true" />
+          <canvas
+            ref={fxCanvasRef}
+            className="mascot-fx-canvas"
+            aria-hidden="true"
+          />
           <span className="mascot-depth-glow" aria-hidden="true" />
           <span className="care-action-fx" aria-hidden="true">
             <i /><i /><i /><i />

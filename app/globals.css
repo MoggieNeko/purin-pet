@@ -7391,6 +7391,134 @@ textarea:focus-visible {
 }
 
 /* -------------------------------------------------------------------------- */
+/* V11 — continuous soft-mesh mascot and iPhone-safe full-screen panels       */
+/* -------------------------------------------------------------------------- */
+
+.canvas-mascot .mascot-canvas,
+.canvas-mascot .mascot-fx-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform: none !important;
+}
+
+.canvas-mascot .mascot-canvas {
+  z-index: 6;
+  image-rendering: auto;
+  filter: none !important;
+}
+
+.canvas-mascot .mascot-fx-canvas {
+  z-index: 7;
+  overflow: visible;
+}
+
+.canvas-mascot .mascot-depth-glow {
+  z-index: 8;
+}
+
+.canvas-mascot.is-growth-preview .mascot-fx-canvas {
+  display: none;
+}
+
+.canvas-mascot .mascot-rig,
+.canvas-mascot .mascot-stage-shell {
+  backface-visibility: hidden;
+}
+
+@media (max-width: 699px) {
+  .modal-backdrop {
+    height: 100%;
+    min-height: 0;
+    align-items: stretch;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .bottom-sheet {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    flex: 1 1 auto;
+    border-radius: 0;
+    padding-top: max(4px, env(safe-area-inset-top));
+  }
+
+  .sheet-handle,
+  .sheet-header,
+  .sheet-tabs {
+    flex: 0 0 auto;
+  }
+
+  .sheet-header {
+    position: relative;
+    z-index: 12;
+    padding-top: 10px;
+    background: rgba(255, 250, 240, 0.98);
+  }
+
+  .sheet-content {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: 28px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sheet-content.growth-content {
+    display: flex;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    flex-direction: column;
+  }
+
+  .sheet-tabs {
+    position: relative;
+    z-index: 20;
+    width: 100%;
+    margin: 0;
+    padding-top: 8px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(119, 78, 54, 0.11);
+    background: rgba(255, 250, 240, 0.985);
+    box-shadow: 0 -8px 22px rgba(83, 53, 35, 0.08);
+    backdrop-filter: blur(16px);
+  }
+
+  .growth-content > section {
+    position: relative;
+    flex: 0 0 auto;
+    overflow: hidden;
+  }
+
+  .growth-shape-gallery > div {
+    min-height: 0;
+    padding-bottom: 10px;
+  }
+
+  .growth-shape-gallery article {
+    min-height: 132px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-mascot .mascot-canvas,
+  .canvas-mascot .mascot-fx-canvas {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /* V10 — stage-aware wardrobe rig, stable growth flow and grounded walking    */
 /* -------------------------------------------------------------------------- */
 
@@ -8241,5 +8369,71 @@ textarea:focus-visible {
   .growth-shape-gallery article em {
     max-width: 94px;
     font-size: 7px;
+  }
+}
+
+/* V11 final cascade: keep the character FX and iPhone sheet geometry deterministic. */
+.canvas-mascot .mascot-canvas,
+.canvas-mascot .mascot-fx-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.canvas-mascot .mascot-canvas {
+  z-index: 6;
+}
+
+.canvas-mascot .mascot-fx-canvas {
+  z-index: 7;
+}
+
+.canvas-mascot .mascot-depth-glow,
+.canvas-mascot .mascot-environment-glow {
+  z-index: 8;
+}
+
+.is-growth-preview .mascot-fx-canvas {
+  display: none;
+}
+
+@media (max-width: 699px) {
+  .modal-backdrop {
+    align-items: stretch !important;
+    height: 100%;
+    padding: 0 !important;
+    overflow: hidden;
+  }
+
+  .bottom-sheet {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: none !important;
+    border-radius: 0;
+  }
+
+  .sheet-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sheet-tabs {
+    position: relative !important;
+    inset: auto !important;
+    z-index: 10;
+    flex: 0 0 auto;
+    width: 100%;
+    margin: 0;
+  }
+
+  .growth-shape-gallery article {
+    min-height: 132px;
   }
 }
