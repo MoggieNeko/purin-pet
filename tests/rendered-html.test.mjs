@@ -70,12 +70,26 @@ test("uses independent stage artwork without the old slice renderer", async () =
   assert.match(mascotSource, /drawGarmentFinish/);
   assert.match(meshSource, /createSoftMeshRenderer/);
   assert.match(meshSource, /deformPoint/);
+  assert.match(meshSource, /UNPACK_FLIP_Y_WEBGL,\s*0/);
+  assert.doesNotMatch(meshSource, /UNPACK_FLIP_Y_WEBGL,\s*1/);
+  for (const anchor of [
+    "shoulderW",
+    "bellyW",
+    "hemY",
+    "armX",
+    "footX",
+  ]) {
+    assert.match(mascotSource, new RegExp(`${anchor}:`));
+  }
+  assert.match(mascotSource, /const idlePulse/);
+  assert.match(mascotSource, /softContact/);
   assert.match(globalStyles, /V11 final cascade/);
+  assert.match(globalStyles, /V12 final cascade/);
   assert.match(globalStyles, /\.mascot-fx-canvas/);
   assert.match(globalStyles, /\.bottom-sheet\s*{[\s\S]*?height:\s*100%/);
   assert.match(globalStyles, /\.sheet-content\s*{[\s\S]*?overflow-y:\s*auto/);
   assert.match(globalStyles, /\.sheet-tabs\s*{[\s\S]*?position:\s*relative\s*!important/);
   assert.match(gameSource, /GROWTH_STAGE_RULES/);
   assert.match(gameSource, /stageAdjustedStatDelta/);
-  assert.match(serviceWorker, /purin-pet-v11/);
+  assert.match(serviceWorker, /purin-pet-v12/);
 });

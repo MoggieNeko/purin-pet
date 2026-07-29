@@ -100,6 +100,13 @@ type StageFit = {
   bodyW: number;
   bodyH: number;
   groundY: number;
+  shoulderW: number;
+  bellyW: number;
+  hemY: number;
+  armX: number;
+  armY: number;
+  footX: number;
+  footY: number;
 };
 
 type PoseTransition = "steady" | "exit" | "enter";
@@ -119,88 +126,123 @@ const STAGE_PLACEMENT: Record<GrowthStageId, StagePlacement> = {
     y: 0.075,
     motion: 1,
     idleSpeed: 1.12,
-    walkSpeed: 1.28,
+    walkSpeed: 1,
   },
   teen: {
     overall: 0.91,
     y: 0.035,
     motion: 1.22,
     idleSpeed: 1.2,
-    walkSpeed: 1.5,
+    walkSpeed: 1.08,
   },
   adult: {
     overall: 1,
     y: 0,
     motion: 1,
     idleSpeed: 1,
-    walkSpeed: 1,
+    walkSpeed: 0.88,
   },
   middle: {
     overall: 0.96,
     y: 0.025,
     motion: 0.82,
     idleSpeed: 0.78,
-    walkSpeed: 0.72,
+    walkSpeed: 0.66,
   },
   senior: {
     overall: 0.88,
     y: 0.065,
     motion: 0.66,
     idleSpeed: 0.62,
-    walkSpeed: 0.52,
+    walkSpeed: 0.48,
   },
 };
 
 const STAGE_FIT: Record<GrowthStageId, StageFit> = {
   child: {
     hatY: -0.405,
-    headY: -0.195,
+    headY: -0.15,
     headW: 0.61,
-    neckY: 0.025,
+    neckY: 0.06,
     bodyY: 0.2,
     bodyW: 0.33,
     bodyH: 0.31,
     groundY: 0.365,
+    shoulderW: 0.18,
+    bellyW: 0.205,
+    hemY: 0.292,
+    armX: 0.235,
+    armY: 0.17,
+    footX: 0.1,
+    footY: 0.315,
   },
   teen: {
     hatY: -0.425,
-    headY: -0.215,
+    headY: -0.195,
     headW: 0.54,
-    neckY: -0.005,
+    neckY: -0.06,
     bodyY: 0.18,
     bodyW: 0.32,
     bodyH: 0.46,
     groundY: 0.43,
+    shoulderW: 0.18,
+    bellyW: 0.215,
+    hemY: 0.325,
+    armX: 0.19,
+    armY: 0.045,
+    footX: 0.12,
+    footY: 0.385,
   },
   adult: {
     hatY: -0.415,
     headY: -0.205,
     headW: 0.6,
-    neckY: 0.025,
+    neckY: -0.04,
     bodyY: 0.205,
     bodyW: 0.41,
     bodyH: 0.4,
     groundY: 0.415,
+    shoulderW: 0.22,
+    bellyW: 0.275,
+    hemY: 0.33,
+    armX: 0.225,
+    armY: 0.105,
+    footX: 0.135,
+    footY: 0.365,
   },
   middle: {
     hatY: -0.42,
-    headY: -0.215,
+    headY: -0.195,
     headW: 0.61,
-    neckY: 0.02,
+    neckY: -0.025,
     bodyY: 0.21,
     bodyW: 0.46,
     bodyH: 0.4,
     groundY: 0.415,
+    shoulderW: 0.24,
+    bellyW: 0.295,
+    hemY: 0.335,
+    armX: 0.235,
+    armY: 0.13,
+    footX: 0.14,
+    footY: 0.365,
   },
   senior: {
     hatY: -0.39,
-    headY: -0.18,
+    headY: -0.15,
     headW: 0.55,
-    neckY: 0.025,
+    neckY: 0.03,
     bodyY: 0.205,
     bodyW: 0.44,
     bodyH: 0.38,
     groundY: 0.395,
+    shoulderW: 0.23,
+    bellyW: 0.275,
+    hemY: 0.33,
+    armX: 0.23,
+    armY: 0.135,
+    footX: 0.13,
+    footY: 0.35,
   },
 };
 
@@ -401,9 +443,9 @@ function torsoPath(
 ) {
   const top = fit.neckY * drawSize;
   const bottom =
-    (fit.bodyY + fit.bodyH * 0.47 * lengthFactor) * drawSize;
-  const shoulder = fit.bodyW * 0.38 * widthFactor * drawSize;
-  const belly = fit.bodyW * 0.52 * widthFactor * drawSize;
+    (fit.neckY + (fit.hemY - fit.neckY) * lengthFactor) * drawSize;
+  const shoulder = fit.shoulderW * widthFactor * drawSize;
+  const belly = fit.bellyW * widthFactor * drawSize;
   context.beginPath();
   context.moveTo(-shoulder, top);
   context.bezierCurveTo(
@@ -1145,8 +1187,8 @@ function drawGarmentFinish(
   if (!BODY_OUTFITS.has(outfit)) return;
 
   const neckY = fit.neckY * drawSize;
-  const hemY = (fit.bodyY + fit.bodyH * 0.48) * drawSize;
-  const bodyWidth = fit.bodyW * drawSize;
+  const hemY = fit.hemY * drawSize;
+  const bodyWidth = fit.bellyW * 2 * drawSize;
   const roomy =
     stage === "child" ? 0.9 : stage === "teen" ? 0.94 : stage === "senior" ? 1.04 : 1;
 
@@ -1254,11 +1296,10 @@ function drawStageOcclusion(
   drawSize: number,
 ) {
   const headHeight = Math.max(0.16, (fit.neckY - fit.headY) * 0.9);
-  const armY = (fit.bodyY - (stage === "child" ? 0.055 : 0.075)) * drawSize;
-  const armX =
-    fit.bodyW * drawSize * (stage === "teen" ? 0.57 : stage === "child" ? 0.6 : 0.55);
-  const footY = (fit.groundY - 0.018) * drawSize;
-  const footX = fit.bodyW * drawSize * (stage === "teen" ? 0.29 : 0.27);
+  const armY = fit.armY * drawSize;
+  const armX = fit.armX * drawSize;
+  const footY = fit.footY * drawSize;
+  const footX = fit.footX * drawSize;
 
   context.save();
   context.beginPath();
@@ -1275,8 +1316,8 @@ function drawStageOcclusion(
     context.ellipse(
       direction * armX,
       armY,
-      drawSize * (stage === "child" ? 0.07 : 0.065),
-      drawSize * (stage === "teen" ? 0.12 : 0.105),
+      drawSize * (stage === "child" ? 0.058 : stage === "teen" ? 0.072 : 0.064),
+      drawSize * (stage === "teen" ? 0.095 : stage === "child" ? 0.075 : 0.1),
       direction * -0.08,
       0,
       Math.PI * 2,
@@ -1284,8 +1325,8 @@ function drawStageOcclusion(
     context.ellipse(
       direction * footX,
       footY,
-      drawSize * (stage === "teen" ? 0.085 : 0.075),
-      drawSize * 0.055,
+      drawSize * (stage === "teen" ? 0.078 : 0.072),
+      drawSize * (stage === "child" ? 0.047 : 0.052),
       0,
       0,
       Math.PI * 2,
@@ -1802,11 +1843,11 @@ function softMeshPoseFor(
     rotation: transitionMotion.rotation,
     scaleX: 1 + (transitionMotion.scaleX - 1) * 0.28,
     scaleY: 1 + (transitionMotion.scaleY - 1) * 0.28,
-    bodyBreath: slow * 0.009,
-    bodyStretch: -slow * 0.004,
-    headAngle: slow * 0.006,
-    leftEarY: slow * 0.002,
-    rightEarY: -slow * 0.002,
+    bodyBreath: slow * 0.0045,
+    bodyStretch: -slow * 0.0018,
+    headAngle: slow * 0.0025,
+    leftEarY: slow * 0.0012,
+    rightEarY: -slow * 0.0012,
   };
 
   const ageStrength: Record<GrowthStageId, number> = {
@@ -1819,29 +1860,28 @@ function softMeshPoseFor(
   const strength = ageStrength[stage];
 
   if (state.moving) {
-    const stride = Math.sin(time * 0.009 * placement.walkSpeed);
-    const oppositeStride = Math.sin(
-      time * 0.009 * placement.walkSpeed + Math.PI,
-    );
-    const leftLift = Math.max(0, stride);
-    const rightLift = Math.max(0, oppositeStride);
-    const contact = Math.max(leftLift, rightLift);
-    pose.y -= contact * (stage === "senior" ? 0.006 : 0.014) * strength;
-    pose.bodyLean = stride * 0.012 * strength;
-    pose.headY = -contact * 0.006 * strength;
+    const gaitPhase = time * 0.0052 * placement.walkSpeed;
+    const stride = Math.sin(gaitPhase);
+    const leftLift = Math.pow(Math.max(0, stride), 1.35);
+    const rightLift = Math.pow(Math.max(0, -stride), 1.35);
+    const softContact = 0.5 - Math.cos(gaitPhase * 2) * 0.5;
+    pose.y -=
+      softContact * (stage === "senior" ? 0.0018 : 0.0038) * strength;
+    pose.bodyLean = stride * 0.006 * strength;
+    pose.headY = -softContact * 0.0022 * strength;
     pose.headAngle =
-      stride * 0.012 * strength -
-      state.direction * (stage === "senior" ? 0.006 : 0.011);
-    pose.leftArmY = -rightLift * 0.018 * strength;
-    pose.rightArmY = -leftLift * 0.018 * strength;
-    pose.leftArmX = stride * 0.006 * strength;
-    pose.rightArmX = oppositeStride * 0.006 * strength;
-    pose.leftFootX = -stride * 0.013 * strength;
-    pose.leftFootY = -leftLift * 0.03 * strength;
-    pose.rightFootX = -oppositeStride * 0.013 * strength;
-    pose.rightFootY = -rightLift * 0.03 * strength;
-    pose.leftEarY = stride * 0.009 * strength;
-    pose.rightEarY = oppositeStride * 0.009 * strength;
+      stride * 0.005 * strength -
+      state.direction * (stage === "senior" ? 0.003 : 0.005);
+    pose.leftArmY = -rightLift * 0.01 * strength;
+    pose.rightArmY = -leftLift * 0.01 * strength;
+    pose.leftArmX = stride * 0.0035 * strength;
+    pose.rightArmX = -stride * 0.0035 * strength;
+    pose.leftFootX = -stride * 0.007 * strength;
+    pose.leftFootY = -leftLift * 0.018 * strength;
+    pose.rightFootX = stride * 0.007 * strength;
+    pose.rightFootY = -rightLift * 0.018 * strength;
+    pose.leftEarY = stride * 0.0028 * strength;
+    pose.rightEarY = -stride * 0.0028 * strength;
     return pose;
   }
 
@@ -1853,9 +1893,9 @@ function softMeshPoseFor(
     senior: 0.62,
   };
   const actionTime = time * actionSpeed[stage];
-  const actionSlow = Math.sin(actionTime * 0.0047);
-  const actionFast = Math.sin(actionTime * 0.0095);
-  const actionPulse = Math.abs(actionFast);
+  const actionSlow = Math.sin(actionTime * 0.0028);
+  const actionFast = Math.sin(actionTime * 0.0068);
+  const actionPulse = 0.5 - Math.cos(actionTime * 0.0068) * 0.5;
 
   if (state.action === "feed") {
     pose.headY = actionPulse * 0.009 * strength;
@@ -1883,16 +1923,16 @@ function softMeshPoseFor(
   }
 
   if (state.action === "play") {
-    pose.y -= actionPulse * (stage === "senior" ? 0.012 : 0.03) * strength;
-    pose.headAngle = actionSlow * 0.018 * strength;
-    pose.bodyLean = actionSlow * 0.014 * strength;
-    pose.leftArmY = -Math.max(0, actionFast) * 0.035 * strength;
+    pose.y -= actionPulse * (stage === "senior" ? 0.007 : 0.017) * strength;
+    pose.headAngle = actionSlow * 0.012 * strength;
+    pose.bodyLean = actionSlow * 0.009 * strength;
+    pose.leftArmY = -Math.max(0, actionFast) * 0.025 * strength;
     pose.rightArmY =
-      -Math.max(0, -actionFast) * 0.035 * strength;
-    pose.leftFootY = -Math.max(0, -actionFast) * 0.025 * strength;
-    pose.rightFootY = -Math.max(0, actionFast) * 0.025 * strength;
-    pose.leftEarY = actionFast * 0.012 * strength;
-    pose.rightEarY = -actionFast * 0.012 * strength;
+      -Math.max(0, -actionFast) * 0.025 * strength;
+    pose.leftFootY = -Math.max(0, -actionFast) * 0.016 * strength;
+    pose.rightFootY = -Math.max(0, actionFast) * 0.016 * strength;
+    pose.leftEarY = actionFast * 0.006 * strength;
+    pose.rightEarY = -actionFast * 0.006 * strength;
     return pose;
   }
 
@@ -1911,7 +1951,7 @@ function softMeshPoseFor(
   }
 
   if (state.action === "gift") {
-    pose.y -= actionPulse * 0.02 * strength;
+    pose.y -= actionPulse * 0.012 * strength;
     pose.headAngle = actionSlow * 0.016;
     pose.leftArmX = 0.026 * strength;
     pose.rightArmX = -0.026 * strength;
@@ -1921,8 +1961,8 @@ function softMeshPoseFor(
   }
 
   if (state.action === "level") {
-    pose.y -= actionPulse * 0.032 * strength;
-    pose.headAngle = actionFast * 0.022 * strength;
+    pose.y -= actionPulse * 0.02 * strength;
+    pose.headAngle = actionFast * 0.014 * strength;
     pose.leftArmX = -0.016 * strength;
     pose.rightArmX = 0.016 * strength;
     pose.leftArmY = -0.042 * strength;
@@ -1953,15 +1993,28 @@ function softMeshPoseFor(
   }
 
   if (petted || state.idlePose === "delighted") {
-    pose.y -= actionPulse * (stage === "senior" ? 0.008 : 0.018) * strength;
-    pose.headY = -actionPulse * 0.01 * strength;
-    pose.headAngle = actionSlow * 0.018 * strength;
-    pose.leftEarY = actionFast * 0.012 * strength;
-    pose.rightEarY = -actionFast * 0.012 * strength;
-    pose.leftArmY = -actionPulse * 0.018 * strength;
-    pose.rightArmY = -actionPulse * 0.018 * strength;
+    pose.y -= actionPulse * (stage === "senior" ? 0.004 : 0.009) * strength;
+    pose.headY = -actionPulse * 0.006 * strength;
+    pose.headAngle = actionSlow * 0.012 * strength;
+    pose.leftEarY = actionFast * 0.006 * strength;
+    pose.rightEarY = -actionFast * 0.006 * strength;
+    pose.leftArmY = -actionPulse * 0.012 * strength;
+    pose.rightArmY = -actionPulse * 0.012 * strength;
     return pose;
   }
+
+  const idleElapsed = Math.max(0, time - transitionStartedAt);
+  const idlePulse = (
+    period: number,
+    startRatio: number,
+    durationRatio: number,
+  ) => {
+    const phase = (idleElapsed % period) / period;
+    if (phase < startRatio || phase > startRatio + durationRatio) return 0;
+    const raw = (phase - startRatio) / durationRatio;
+    const eased = raw * raw * (3 - 2 * raw);
+    return Math.sin(eased * Math.PI);
+  };
 
   if (state.condition === "hungry") {
     pose.y += 0.014;
@@ -2000,64 +2053,86 @@ function softMeshPoseFor(
   }
 
   if (state.idlePose === "curious") {
-    pose.headAngle += -0.045 + slow * 0.012;
-    pose.headX = 0.005;
-    pose.leftEarY -= 0.007;
-    pose.rightEarY += 0.008;
+    const gesture = idlePulse(7_800, 0.16, 0.5);
+    pose.headAngle += -0.036 * gesture;
+    pose.headX = 0.004 * gesture;
+    pose.leftEarY -= 0.005 * gesture;
+    pose.rightEarY += 0.006 * gesture;
   } else if (state.idlePose === "sniff") {
-    pose.headX = fast * 0.008;
-    pose.headY = Math.max(0, fast) * 0.006;
-    pose.headAngle += fast * 0.008;
+    const gesture = idlePulse(6_600, 0.2, 0.34);
+    const sniff = Math.sin(idleElapsed * 0.012) * gesture;
+    pose.headX = sniff * 0.005;
+    pose.headY = Math.max(0, sniff) * 0.004;
+    pose.headAngle += sniff * 0.005;
   } else if (state.idlePose === "sway") {
-    pose.bodyLean += medium * 0.022 * strength;
-    pose.headAngle -= medium * 0.014 * strength;
-    pose.leftArmY = -Math.max(0, medium) * 0.012;
-    pose.rightArmY = -Math.max(0, -medium) * 0.012;
+    const gesture = idlePulse(8_200, 0.12, 0.68);
+    const sway = Math.sin(idleElapsed * 0.0018) * gesture;
+    pose.bodyLean += sway * 0.012 * strength;
+    pose.headAngle -= sway * 0.007 * strength;
+    pose.leftArmY = -Math.max(0, sway) * 0.007;
+    pose.rightArmY = -Math.max(0, -sway) * 0.007;
   } else if (state.idlePose === "toddle") {
-    pose.y -= Math.abs(fast) * 0.012;
-    pose.bodyLean += medium * 0.026;
-    pose.leftFootY = -Math.max(0, fast) * 0.02;
-    pose.rightFootY = -Math.max(0, -fast) * 0.02;
-    pose.leftArmY = -Math.max(0, -fast) * 0.014;
-    pose.rightArmY = -Math.max(0, fast) * 0.014;
+    const gesture = idlePulse(6_800, 0.2, 0.42);
+    const step = Math.sin(idleElapsed * 0.0062) * gesture;
+    const lift = 0.5 - Math.cos(idleElapsed * 0.0124) * 0.5;
+    pose.y -= lift * gesture * 0.0035;
+    pose.bodyLean += step * 0.012;
+    pose.leftFootY = -Math.max(0, step) * 0.012;
+    pose.rightFootY = -Math.max(0, -step) * 0.012;
+    pose.leftArmY = -Math.max(0, -step) * 0.008;
+    pose.rightArmY = -Math.max(0, step) * 0.008;
   } else if (state.idlePose === "energetic") {
-    pose.y -= Math.abs(medium) * 0.026;
-    pose.headY = -Math.abs(medium) * 0.007;
-    pose.leftArmY = -Math.max(0, fast) * 0.03;
-    pose.rightArmY = -Math.max(0, -fast) * 0.03;
-    pose.leftFootY = -Math.max(0, -fast) * 0.018;
-    pose.rightFootY = -Math.max(0, fast) * 0.018;
+    const gesture = idlePulse(7_000, 0.18, 0.34);
+    const hop = Math.max(0, Math.sin(idleElapsed * 0.0064)) * gesture;
+    const alternate = Math.sin(idleElapsed * 0.0064) * gesture;
+    pose.y -= hop * 0.012;
+    pose.headY = -hop * 0.003;
+    pose.leftArmY = -Math.max(0, alternate) * 0.018;
+    pose.rightArmY = -Math.max(0, -alternate) * 0.018;
+    pose.leftFootY = -Math.max(0, -alternate) * 0.01;
+    pose.rightFootY = -Math.max(0, alternate) * 0.01;
   } else if (state.idlePose === "stretch") {
-    pose.bodyStretch += 0.026 + slow * 0.006;
-    pose.bodyBreath -= 0.014;
-    pose.headY = -0.012;
-    pose.leftArmX = -0.016;
-    pose.rightArmX = 0.016;
-    pose.leftArmY = -0.018;
-    pose.rightArmY = -0.018;
+    const gesture = idlePulse(8_600, 0.18, 0.58);
+    pose.bodyStretch += 0.014 * gesture;
+    pose.bodyBreath -= 0.007 * gesture;
+    pose.headY = -0.007 * gesture;
+    pose.leftArmX = -0.01 * gesture;
+    pose.rightArmX = 0.01 * gesture;
+    pose.leftArmY = -0.013 * gesture;
+    pose.rightArmY = -0.013 * gesture;
   } else if (state.idlePose === "glasses") {
-    pose.headAngle += -0.018 + Math.max(0, fast) * 0.015;
-    pose.leftArmX = 0.018;
-    pose.leftArmY = -0.026;
+    const gesture = idlePulse(9_200, 0.27, 0.34);
+    pose.headAngle += -0.014 * gesture;
+    pose.leftArmX = 0.012 * gesture;
+    pose.leftArmY = -0.019 * gesture;
   } else if (state.idlePose === "cane") {
-    pose.bodyLean += -0.015 + medium * 0.006;
-    pose.headAngle += 0.012;
-    pose.leftArmY = Math.max(0, medium) * 0.005;
+    const gesture = idlePulse(10_200, 0.14, 0.66);
+    const weightShift = Math.sin(idleElapsed * 0.00125) * gesture;
+    pose.bodyLean += -0.008 * gesture + weightShift * 0.003;
+    pose.headAngle += 0.007 * gesture;
+    pose.leftArmY = Math.max(0, weightShift) * 0.003;
   } else if (state.idlePose === "doze" || state.idlePose === "nap") {
-    pose.y += 0.012;
-    pose.bodyStretch -= 0.018;
-    pose.headAngle += -0.035;
-    pose.headY = 0.012;
-    pose.leftEarY = 0.012;
-    pose.rightEarY = 0.012;
+    const gesture = idlePulse(
+      state.idlePose === "nap" ? 10_800 : 8_800,
+      0.16,
+      0.68,
+    );
+    pose.y += 0.005 * gesture;
+    pose.bodyStretch -= 0.01 * gesture;
+    pose.headAngle += -0.027 * gesture;
+    pose.headY = 0.009 * gesture;
+    pose.leftEarY = 0.007 * gesture;
+    pose.rightEarY = 0.007 * gesture;
   } else if (state.idlePose === "selfplay") {
-    pose.headAngle += medium * 0.014;
-    pose.leftArmX = 0.02;
-    pose.rightArmX = -0.02;
-    pose.leftArmY = -Math.max(0, fast) * 0.024;
-    pose.rightArmY = -Math.max(0, -fast) * 0.024;
-    pose.leftFootY = -Math.max(0, -fast) * 0.012;
-    pose.rightFootY = -Math.max(0, fast) * 0.012;
+    const gesture = idlePulse(7_600, 0.18, 0.5);
+    const playBeat = Math.sin(idleElapsed * 0.006) * gesture;
+    pose.headAngle += playBeat * 0.008;
+    pose.leftArmX = 0.013 * gesture;
+    pose.rightArmX = -0.013 * gesture;
+    pose.leftArmY = -Math.max(0, playBeat) * 0.016;
+    pose.rightArmY = -Math.max(0, -playBeat) * 0.016;
+    pose.leftFootY = -Math.max(0, -playBeat) * 0.007;
+    pose.rightFootY = -Math.max(0, playBeat) * 0.007;
   }
 
   return pose;
@@ -2069,28 +2144,28 @@ function transitionMotionFor(
   startedAt: number,
 ): DrawMotion {
   if (transition === "exit") {
-    const progress = Math.min(1, Math.max(0, (time - startedAt) / 170));
+    const progress = Math.min(1, Math.max(0, (time - startedAt) / 240));
     const eased = 1 - Math.pow(1 - progress, 2);
     return {
       x: 0,
-      y: 0.009 * eased,
+      y: 0.003 * eased,
       rotation: 0,
-      scaleX: 1 + 0.022 * eased,
-      scaleY: 1 - 0.052 * eased,
+      scaleX: 1 + 0.007 * eased,
+      scaleY: 1 - 0.012 * eased,
       skewX: 0,
     };
   }
   if (transition === "enter") {
-    const progress = Math.min(1, Math.max(0, (time - startedAt) / 560));
+    const progress = Math.min(1, Math.max(0, (time - startedAt) / 680));
     const remaining = 1 - progress;
-    const settle = Math.sin(progress * Math.PI * 2.4) * remaining;
+    const settle = Math.sin(progress * Math.PI * 1.8) * remaining;
     return {
       x: 0,
-      y: 0.01 * remaining,
-      rotation: settle * 0.006,
-      scaleX: 1 - 0.022 * remaining + 0.01 * settle,
-      scaleY: 1 + 0.035 * remaining - 0.012 * settle,
-      skewX: settle * 0.004,
+      y: 0.003 * remaining,
+      rotation: settle * 0.0025,
+      scaleX: 1 - 0.007 * remaining + 0.003 * settle,
+      scaleY: 1 + 0.011 * remaining - 0.004 * settle,
+      skewX: settle * 0.0015,
     };
   }
   return {
@@ -2128,13 +2203,10 @@ function softMeshLandmarksFor(stage: GrowthStageId): SoftMeshLandmarks {
   const centerY = 0.5 + placement.y;
   const headY = centerY + fit.headY * scale;
   const bodyY = centerY + fit.bodyY * scale;
-  const armY =
-    centerY +
-    (fit.bodyY - (stage === "child" ? 0.055 : 0.075)) * scale;
-  const footY = centerY + (fit.groundY - 0.018) * scale;
-  const armX =
-    fit.bodyW * scale * (stage === "teen" ? 0.57 : stage === "child" ? 0.6 : 0.55);
-  const footX = fit.bodyW * scale * (stage === "teen" ? 0.29 : 0.27);
+  const armY = centerY + fit.armY * scale;
+  const footY = centerY + fit.footY * scale;
+  const armX = fit.armX * scale;
+  const footX = fit.footX * scale;
   const earX = fit.headW * scale * 0.43;
 
   return {
@@ -2208,11 +2280,21 @@ function drawCompositeTexture(
   context.translate(size * 0.5, size * (0.5 + placement.y));
   drawOutfitBack(context, outfit, stage, fit, drawSize);
   drawStageSprite(context, image, drawSize);
-  drawOutfitFront(context, outfit, stage, fit, drawSize);
-  drawGarmentFinish(context, outfit, stage, fit, drawSize);
-  if (outfit !== "soft" && outfit !== "classic") {
+  if (BODY_OUTFITS.has(outfit)) {
+    context.save();
+    torsoPath(context, fit, drawSize, 1.18, 1.12);
+    context.clip();
+    drawOutfitFront(context, outfit, stage, fit, drawSize);
+    context.restore();
+    drawGarmentFinish(context, outfit, stage, fit, drawSize);
     drawStageOcclusion(context, image, stage, fit, drawSize);
     drawOutfitAccessoryFront(context, outfit, stage, fit, drawSize);
+  } else {
+    drawOutfitFront(context, outfit, stage, fit, drawSize);
+    if (outfit !== "soft" && outfit !== "classic") {
+      drawStageOcclusion(context, image, stage, fit, drawSize);
+      drawOutfitAccessoryFront(context, outfit, stage, fit, drawSize);
+    }
   }
   applyEnvironmentTint(context, drawSize, environment);
   context.restore();
@@ -2365,8 +2447,8 @@ export function PurinMascot({
       setPoseTransition("enter");
       transitionTimer.current = setTimeout(() => {
         setPoseTransition("steady");
-      }, 560);
-    }, 170);
+      }, 680);
+    }, 240);
   }, [action, condition, desiredKey, direction, idlePose, moving]);
 
   useEffect(() => {
