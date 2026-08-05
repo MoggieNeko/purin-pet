@@ -18,6 +18,8 @@ import {
   ACTION_EFFECTS,
   ACTION_META,
   DEFAULT_NOTE,
+  DLC_MASTER_CODE,
+  DLC_PACKS,
   EVENT_COOLDOWN_MS,
   FAMILY_BIRTH_GAP_MS,
   FAMILY_WAIT_MS,
@@ -39,12 +41,15 @@ import {
   growthStageRulesFor,
   localDateKey,
   nextGrowthStage,
+  normalizeDlcCode,
   statStateLabel,
   stageAdjustedStatDelta,
   xpRequired,
   type CareAction,
   type ChildPet,
   type ClosetTab,
+  type DlcPack,
+  type DlcPackId,
   type GameState,
   type Panel,
   type PetAction,
@@ -151,6 +156,14 @@ const DESKTOP_ROAM_PROFILE: Record<
   },
 };
 
+const DLC_PREVIEW_POSITION: Record<GrowthStageId, string> = {
+  child: "0% 0%",
+  teen: "50% 0%",
+  adult: "100% 0%",
+  middle: "0% 100%",
+  senior: "50% 100%",
+};
+
 function makeMiniGameItem(id: number, firstWave = false): MiniGameItem {
   const roll = Math.random();
   const kind: MiniGameItemKind =
@@ -181,7 +194,7 @@ function miniGameItemImagePath() {
 
 function makeInitialState(now = Date.now()): GameState {
   return {
-    version: 3,
+    version: 4,
     petName: "布甸仔",
     level: 1,
     xp: 0,
@@ -200,6 +213,7 @@ function makeInitialState(now = Date.now()): GameState {
     ownedOutfits: ["classic", "soft"],
     selectedScene: "cozy",
     ownedScenes: ["cozy"],
+    redeemedDlcPacks: [],
     cooldowns: {
       feed: 0,
       bath: 0,
@@ -261,10 +275,16 @@ function normalizeState(value: LegacyState, now: number): GameState {
   const validGrowthStages = new Set<GrowthStageId>(
     GROWTH_STAGES.map((item) => item.id),
   );
+  const validDlcPacks = new Set<DlcPackId>(DLC_PACKS.map((pack) => pack.id));
+  const redeemedDlcPacks: DlcPackId[] = Array.isArray(value.redeemedDlcPacks)
+    ? value.redeemedDlcPacks.filter((item): item is DlcPackId =>
+        validDlcPacks.has(item),
+      )
+    : [];
   return {
     ...base,
     ...value,
-    version: 3,
+    version: 4,
     lastUpdated: Number(value.lastUpdated) || now,
     createdAt,
     level,
@@ -285,12 +305,22 @@ function normalizeState(value: LegacyState, now: number): GameState {
         "soft" as OutfitId,
         migratedOutfit,
         ...ownedOutfits,
+        ...redeemedDlcPacks.map(
+          (packId) => DLC_PACKS.find((pack) => pack.id === packId)!.outfitId,
+        ),
       ]),
     ),
     selectedScene,
     ownedScenes: Array.from(
-      new Set<SceneId>(["cozy" as SceneId, ...ownedScenes]),
+      new Set<SceneId>([
+        "cozy" as SceneId,
+        ...ownedScenes,
+        ...redeemedDlcPacks.map(
+          (packId) => DLC_PACKS.find((pack) => pack.id === packId)!.sceneId,
+        ),
+      ]),
     ),
+    redeemedDlcPacks,
     cooldowns: {
       feed: Number(cooldowns.feed) || 0,
       bath: Number(cooldowns.bath) || 0,
@@ -436,6 +466,11 @@ export function PurinPet() {
   const [hydrated, setHydrated] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   const [closetTab, setClosetTab] = useState<ClosetTab>("outfits");
+  const [dlcCodeDraft, setDlcCodeDraft] = useState("");
+  const [dlcFeedback, setDlcFeedback] = useState<{
+    kind: "success" | "error" | "info";
+    text: string;
+  } | null>(null);
   const [action, setAction] = useState<PetAction | null>(null);
   const [speech, setSpeech] = useState("你返嚟喇！我等咗你好耐 ♡");
   const [toast, setToast] = useState("");
@@ -1316,10 +1351,147 @@ export function PurinPet() {
     setEventResult("");
     setEventDisplayId(null);
     setWelcomeOpen(true);
+    setDlcCodeDraft("");
+    setDlcFeedback(null);
     showToast("已經重新開始");
   };
 
+  const activateDlcPack = (pack: DlcPack) => {
+    if (!game.redeemedDlcPacks.includes(pack.id)) {
+      setDlcFeedback({
+        kind: "info",
+        text: `輸入 ${pack.character} 專屬代碼，就會一次過領取五個年齡造型同「${pack.sceneLabel}」。`,
+      });
+      setDlcCodeDraft("");
+      return;
+    }
+    setGame((current) => ({
+      ...current,
+      selectedOutfit: pack.outfitId,
+      selectedScene: pack.sceneId,
+    }));
+    setSpeech(`${pack.character}造型同${pack.sceneLabel}已經換好喇！`);
+    setDlcFeedback({
+      kind: "success",
+      text: `已換上「${pack.character}」全年齡造型，並前往「${pack.sceneLabel}」。`,
+    });
+    playTone("tap");
+  };
+
+  const redeemDlcCode = () => {
+    const normalizedInput = normalizeDlcCode(dlcCodeDraft);
+    const normalizedMaster = normalizeDlcCode(DLC_MASTER_CODE);
+    const matchedPack = DLC_PACKS.find(
+      (pack) => normalizeDlcCode(pack.unlockCode) === normalizedInput,
+    );
+    const packs =
+      normalizedInput === normalizedMaster
+        ? DLC_PACKS
+        : matchedPack
+          ? [matchedPack]
+          : [];
+
+    if (!normalizedInput) {
+      setDlcFeedback({ kind: "error", text: "請先輸入 DLC 兌換碼。" });
+      return;
+    }
+    if (!packs.length) {
+      setDlcFeedback({
+        kind: "error",
+        text: "呢個代碼未能辨認。大小寫、空格同連字號唔會影響兌換。",
+      });
+      playTone("soft");
+      return;
+    }
+
+    const freshPacks = packs.filter(
+      (pack) => !game.redeemedDlcPacks.includes(pack.id),
+    );
+    if (!freshPacks.length) {
+      setDlcFeedback({
+        kind: "info",
+        text:
+          packs.length === 1
+            ? `「${packs[0].character}」角色包已經領取過，可以直接套用。`
+            : "全部動漫角色包已經領取完成。",
+      });
+      return;
+    }
+
+    const redeemTime = clock || game.lastUpdated || game.createdAt;
+    setGame((current) => {
+      const newlyRedeemed = freshPacks.filter(
+        (pack) => !current.redeemedDlcPacks.includes(pack.id),
+      );
+      if (!newlyRedeemed.length) return current;
+      const firstPack = newlyRedeemed[0];
+      return {
+        ...current,
+        redeemedDlcPacks: Array.from(
+          new Set<DlcPackId>([
+            ...current.redeemedDlcPacks,
+            ...newlyRedeemed.map((pack) => pack.id),
+          ]),
+        ),
+        ownedOutfits: Array.from(
+          new Set<OutfitId>([
+            ...current.ownedOutfits,
+            ...newlyRedeemed.map((pack) => pack.outfitId),
+          ]),
+        ),
+        ownedScenes: Array.from(
+          new Set<SceneId>([
+            ...current.ownedScenes,
+            ...newlyRedeemed.map((pack) => pack.sceneId),
+          ]),
+        ),
+        selectedOutfit:
+          newlyRedeemed.length === 1
+            ? firstPack.outfitId
+            : current.selectedOutfit,
+        selectedScene:
+          newlyRedeemed.length === 1
+            ? firstPack.sceneId
+            : current.selectedScene,
+        log: [
+          {
+            id: `${redeemTime}-dlc-${newlyRedeemed.map((pack) => pack.id).join("-")}`,
+            text:
+              newlyRedeemed.length === 1
+                ? `領取咗「${firstPack.series}・${firstPack.character}」角色包`
+                : `一次過領取咗 ${newlyRedeemed.length} 個動漫角色包`,
+            time: redeemTime,
+          },
+          ...current.log,
+        ].slice(0, 16),
+      };
+    });
+
+    const successText =
+      freshPacks.length === 1
+        ? `已解鎖 ${freshPacks[0].character}：五個年齡造型＋${freshPacks[0].sceneLabel}。`
+        : `已解鎖 ${freshPacks.length} 個角色包、全部年齡造型同配套場景。`;
+    setDlcCodeDraft("");
+    setDlcFeedback({ kind: "success", text: successText });
+    setSpeech(
+      freshPacks.length === 1
+        ? `新造型好貼身！我哋去${freshPacks[0].sceneLabel}睇吓～`
+        : "動漫衣櫃全部準備好喇！",
+    );
+    showToast(successText);
+    playTone("reward");
+  };
+
   const chooseOutfit = (outfit: (typeof OUTFITS)[number]) => {
+    if (outfit.dlc && !game.ownedOutfits.includes(outfit.id)) {
+      setClosetTab("dlc");
+      setDlcFeedback({
+        kind: "info",
+        text: "呢套係 DLC 全年齡造型，請用角色專屬代碼領取。",
+      });
+      showToast("請到 DLC 兌換中心輸入角色代碼");
+      return;
+    }
     if (game.level < outfit.level) {
       showToast(`成長到 Lv.${outfit.level} 先會出現`);
       return;
@@ -1360,6 +1532,15 @@ export function PurinPet() {
   };
 
   const chooseScene = (scene: (typeof SCENES)[number]) => {
+    if (scene.dlc && !game.ownedScenes.includes(scene.id)) {
+      setClosetTab("dlc");
+      setDlcFeedback({
+        kind: "info",
+        text: "呢個係角色包配套場景，兌換對應角色代碼就會一齊領取。",
+      });
+      showToast("配套場景需要 DLC 角色代碼");
+      return;
+    }
     if (game.level < scene.level) {
       showToast(`成長到 Lv.${scene.level} 先會發現呢個地方`);
       return;
@@ -2304,7 +2485,7 @@ export function PurinPet() {
                     role="tab"
                     aria-selected={closetTab === "outfits"}
                   >
-                    服裝 <span>{OUTFITS.length}</span>
+                    服裝 <span>{OUTFITS.filter((item) => !item.dlc).length}</span>
                   </button>
                   <button
                     className={closetTab === "scenes" ? "is-active" : ""}
@@ -2312,16 +2493,26 @@ export function PurinPet() {
                     role="tab"
                     aria-selected={closetTab === "scenes"}
                   >
-                    場景 <span>{SCENES.length}</span>
+                    場景 <span>{SCENES.filter((item) => !item.dlc).length}</span>
+                  </button>
+                  <button
+                    className={closetTab === "dlc" ? "is-active" : ""}
+                    onClick={() => setClosetTab("dlc")}
+                    role="tab"
+                    aria-selected={closetTab === "dlc"}
+                  >
+                    DLC <span>{game.redeemedDlcPacks.length}/{DLC_PACKS.length}</span>
                   </button>
                 </div>
                 <p className="sheet-copy">
-                  先陪佢成長到指定等級，再用照顧賺到嘅金幣永久解鎖。
-                  已經擁有嘅服裝同場景可以隨時免費更換。
+                  {closetTab === "dlc"
+                    ? "一個角色代碼會永久領取該角色五個年齡版本嘅貼身服裝，同埋最具代表性嘅配套場景。兌換資料會跟住存檔。"
+                    : "先陪佢成長到指定等級，再用照顧賺到嘅金幣永久解鎖。已經擁有嘅服裝同場景可以隨時免費更換。"}
                 </p>
                 {closetTab === "outfits" ? (
                   <div className="closet-grid outfit-grid">
                     {[...OUTFITS]
+                      .filter((item) => !item.dlc)
                       .sort((a, b) => a.level - b.level)
                       .map((item) => {
                       const levelLocked = game.level < item.level;
@@ -2366,9 +2557,10 @@ export function PurinPet() {
                       );
                       })}
                   </div>
-                ) : (
+                ) : closetTab === "scenes" ? (
                   <div className="closet-grid scene-grid">
                     {[...SCENES]
+                      .filter((item) => !item.dlc)
                       .sort((a, b) => a.level - b.level)
                       .map((item) => {
                       const levelLocked = game.level < item.level;
@@ -2407,6 +2599,125 @@ export function PurinPet() {
                         </button>
                       );
                       })}
+                  </div>
+                ) : (
+                  <div className="dlc-center">
+                    <section className="dlc-redeem-card">
+                      <div className="dlc-redeem-heading">
+                        <span className="dlc-ticket-mark" aria-hidden="true">DLC</span>
+                        <div>
+                          <strong>動漫角色包兌換中心</strong>
+                          <small>代碼不分大小寫，空格同「-」可以省略</small>
+                        </div>
+                      </div>
+                      <form
+                        className="dlc-redeem-form"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          redeemDlcCode();
+                        }}
+                      >
+                        <label htmlFor="dlc-code">角色兌換碼</label>
+                        <div>
+                          <input
+                            id="dlc-code"
+                            value={dlcCodeDraft}
+                            onChange={(event) => {
+                              setDlcCodeDraft(event.target.value);
+                              if (dlcFeedback?.kind === "error") setDlcFeedback(null);
+                            }}
+                            placeholder="例如：YOROZUYA-SILVER"
+                            autoCapitalize="characters"
+                            autoCorrect="off"
+                            spellCheck={false}
+                          />
+                          <button type="submit">領取</button>
+                        </div>
+                      </form>
+                      {dlcFeedback && (
+                        <p
+                          className={`dlc-feedback is-${dlcFeedback.kind}`}
+                          role="status"
+                          aria-live="polite"
+                        >
+                          {dlcFeedback.text}
+                        </p>
+                      )}
+                      <div className="dlc-progress" aria-label="DLC 領取進度">
+                        <span>
+                          <i
+                            style={{
+                              width: `${(game.redeemedDlcPacks.length / DLC_PACKS.length) * 100}%`,
+                            }}
+                          />
+                        </span>
+                        <small>
+                          已領取 {game.redeemedDlcPacks.length} / {DLC_PACKS.length} 個角色包
+                        </small>
+                      </div>
+                    </section>
+
+                    <div className="dlc-pack-list">
+                      {DLC_PACKS.map((pack) => {
+                        const redeemed = game.redeemedDlcPacks.includes(pack.id);
+                        const active =
+                          game.selectedOutfit === pack.outfitId &&
+                          game.selectedScene === pack.sceneId;
+                        return (
+                          <article
+                            className={`dlc-pack-card ${redeemed ? "is-redeemed" : "is-locked"} ${active ? "is-active" : ""}`}
+                            key={pack.id}
+                            style={{ "--dlc-accent": pack.accent } as CSSProperties}
+                          >
+                            <div
+                              className="dlc-pack-art"
+                              style={{
+                                backgroundImage: `url("${sceneImagePath(pack.sceneId)}")`,
+                              }}
+                            >
+                              <span className="dlc-pack-shade" />
+                              <span
+                                className="dlc-character-preview"
+                                style={{
+                                  backgroundImage: `url("./purin-dlc/outfits/${pack.id}.webp")`,
+                                  backgroundPosition: DLC_PREVIEW_POSITION[currentGrowth.id],
+                                }}
+                                aria-hidden="true"
+                              />
+                              <span className="dlc-series-label">{pack.series}</span>
+                              <span className="dlc-age-label">{currentGrowth.label}預覽</span>
+                            </div>
+                            <div className="dlc-pack-copy">
+                              <header>
+                                <span className="dlc-pack-symbol">{pack.symbol}</span>
+                                <div>
+                                  <strong>{pack.character}</strong>
+                                  <small>{pack.sceneLabel}</small>
+                                </div>
+                                <span className={`dlc-status ${redeemed ? "is-owned" : ""}`}>
+                                  {active ? "使用中" : redeemed ? "已領取" : "未領取"}
+                                </span>
+                              </header>
+                              <p>{pack.description}</p>
+                              <ul>
+                                <li>幼年・青年・壯年・中年・老年</li>
+                                <li>角色服裝＋代表場景一併解鎖</li>
+                              </ul>
+                              <button
+                                type="button"
+                                onClick={() => activateDlcPack(pack)}
+                              >
+                                {active
+                                  ? "目前使用中"
+                                  : redeemed
+                                    ? "套用服裝及場景"
+                                    : "用角色代碼領取"}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -2630,6 +2941,15 @@ export function PurinPet() {
                         目前位置：
                         {SCENES.find((item) => item.id === game.selectedScene)
                           ?.label ?? "焦糖小屋"}
+                      </small>
+                    </span>
+                    <span className="row-arrow">›</span>
+                  </button>
+                  <button onClick={() => openCloset("dlc")}>
+                    <span>
+                      <strong>動漫 DLC 兌換中心</strong>
+                      <small>
+                        已領取 {game.redeemedDlcPacks.length} / {DLC_PACKS.length} 個角色包
                       </small>
                     </span>
                     <span className="row-arrow">›</span>

@@ -103,5 +103,31 @@ test("uses independent stage artwork without the old slice renderer", async () =
   assert.match(globalStyles, /\.sheet-tabs\s*{[\s\S]*?position:\s*relative\s*!important/);
   assert.match(gameSource, /GROWTH_STAGE_RULES/);
   assert.match(gameSource, /stageAdjustedStatDelta/);
-  assert.match(serviceWorker, /purin-pet-v13/);
+  assert.match(globalStyles, /V14/);
+  assert.match(mascotSource, /DLC_OUTFIT_ATLAS/);
+  assert.match(mascotSource, /drawDlcOutfitTexture/);
+  for (const outfit of [
+    "gintoki",
+    "feitan",
+    "tsuna",
+    "mafuyu",
+    "ritsuka",
+    "haruki",
+    "akihiko",
+    "chihiro",
+  ]) {
+    assert.match(serviceWorker, new RegExp(`purin-dlc/outfits/${outfit}\\.webp`));
+  }
+  for (const scene of [
+    "yorozuya",
+    "spider-hideout",
+    "namimori-home",
+    "given-studio",
+    "kagurabachi-shop",
+  ]) {
+    assert.match(serviceWorker, new RegExp(`purin-scenes/dlc-${scene}\\.webp`));
+  }
+  assert.match(gameSource, /DLC_PACKS/);
+  assert.match(gameSource, /PURIN-ANIME-ALL/);
+  assert.match(serviceWorker, /purin-pet-v14/);
 });

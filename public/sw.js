@@ -1,4 +1,4 @@
-const CACHE_NAME = "purin-pet-v13";
+const CACHE_NAME = "purin-pet-v14";
 const APP_SHELL = [
   "./",
   "./manifest.webmanifest",
@@ -13,6 +13,14 @@ const APP_SHELL = [
   "./purin-outfits/adult.png",
   "./purin-outfits/middle.png",
   "./purin-outfits/senior.png",
+  "./purin-dlc/outfits/gintoki.webp",
+  "./purin-dlc/outfits/feitan.webp",
+  "./purin-dlc/outfits/tsuna.webp",
+  "./purin-dlc/outfits/mafuyu.webp",
+  "./purin-dlc/outfits/ritsuka.webp",
+  "./purin-dlc/outfits/haruki.webp",
+  "./purin-dlc/outfits/akihiko.webp",
+  "./purin-dlc/outfits/chihiro.webp",
   "./purin-action/action-props.png",
   "./purin-game/game-items.webp",
   "./purin-scenes/cozy.webp",
@@ -27,6 +35,11 @@ const APP_SHELL = [
   "./purin-scenes/snow.webp",
   "./purin-scenes/puddingland.webp",
   "./purin-scenes/upside.webp",
+  "./purin-scenes/dlc-yorozuya.webp",
+  "./purin-scenes/dlc-spider-hideout.webp",
+  "./purin-scenes/dlc-namimori-home.webp",
+  "./purin-scenes/dlc-given-studio.webp",
+  "./purin-scenes/dlc-kagurabachi-shop.webp",
 ];
 
 self.addEventListener("install", (event) => {

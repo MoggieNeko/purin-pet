@@ -24,7 +24,15 @@ export type OutfitId =
   | "banana"
   | "pudding"
   | "sushi"
-  | "ufo";
+  | "ufo"
+  | "dlc-gintoki"
+  | "dlc-feitan"
+  | "dlc-tsuna"
+  | "dlc-mafuyu"
+  | "dlc-ritsuka"
+  | "dlc-haruki"
+  | "dlc-akihiko"
+  | "dlc-chihiro";
 
 export type PetCondition =
   | "radiant"
@@ -265,7 +273,26 @@ const STAGE_OUTFIT_ATLAS: Record<GrowthStageId, string> = {
   senior: "senior.png",
 };
 
-const OUTFIT_ATLAS_INDEX: Record<OutfitId, number> = {
+const DLC_OUTFIT_ATLAS: Partial<Record<OutfitId, string>> = {
+  "dlc-gintoki": "gintoki.webp",
+  "dlc-feitan": "feitan.webp",
+  "dlc-tsuna": "tsuna.webp",
+  "dlc-mafuyu": "mafuyu.webp",
+  "dlc-ritsuka": "ritsuka.webp",
+  "dlc-haruki": "haruki.webp",
+  "dlc-akihiko": "akihiko.webp",
+  "dlc-chihiro": "chihiro.webp",
+};
+
+const DLC_STAGE_ATLAS_INDEX: Record<GrowthStageId, number> = {
+  child: 0,
+  teen: 1,
+  adult: 2,
+  middle: 3,
+  senior: 4,
+};
+
+const OUTFIT_ATLAS_INDEX: Partial<Record<OutfitId, number>> = {
   classic: 0,
   soft: 1,
   scarf: 2,
@@ -370,6 +397,11 @@ const ENVIRONMENT_TINT: Record<string, string> = {
   snow: "rgba(177, 219, 255, 0.075)",
   puddingland: "rgba(255, 144, 190, 0.055)",
   upside: "rgba(185, 132, 215, 0.055)",
+  "dlc-yorozuya": "rgba(255, 183, 105, 0.048)",
+  "dlc-spider-hideout": "rgba(103, 112, 145, 0.105)",
+  "dlc-namimori-home": "rgba(255, 207, 133, 0.045)",
+  "dlc-given-studio": "rgba(189, 104, 118, 0.072)",
+  "dlc-kagurabachi-shop": "rgba(79, 141, 157, 0.085)",
   neutral: "rgba(255, 205, 126, 0.018)",
 };
 
@@ -400,6 +432,10 @@ function petAssetPath(file: string) {
 
 function outfitAssetPath(file: string) {
   return `./purin-outfits/${file}`;
+}
+
+function dlcOutfitAssetPath(file: string) {
+  return `./purin-dlc/outfits/${file}`;
 }
 
 function actionAssetPath(file: string) {
@@ -2749,14 +2785,24 @@ function drawCompositeTexture(
   size: number,
 ) {
   if (outfitAtlas) {
-    drawAtlasOutfitTexture(
-      context,
-      outfitAtlas,
-      stage,
-      outfit,
-      environment,
-      size,
-    );
+    if (DLC_OUTFIT_ATLAS[outfit]) {
+      drawDlcOutfitTexture(
+        context,
+        outfitAtlas,
+        stage,
+        environment,
+        size,
+      );
+    } else {
+      drawAtlasOutfitTexture(
+        context,
+        outfitAtlas,
+        stage,
+        outfit,
+        environment,
+        size,
+      );
+    }
     return;
   }
   if (!image) return;
@@ -2801,6 +2847,7 @@ function drawAtlasOutfitTexture(
   size: number,
 ) {
   const atlasIndex = OUTFIT_ATLAS_INDEX[outfit];
+  if (atlasIndex === undefined) return;
   const row = Math.floor(atlasIndex / 4);
   const column = atlasIndex % 4;
   const cellWidth = atlas.naturalWidth / 4;
@@ -2830,6 +2877,45 @@ function drawAtlasOutfitTexture(
   context.globalCompositeOperation = "source-atop";
   context.fillStyle =
     ENVIRONMENT_TINT[environment] ?? ENVIRONMENT_TINT.neutral;
+  context.fillRect(0, 0, size, size);
+  context.restore();
+}
+
+function drawDlcOutfitTexture(
+  context: CanvasRenderingContext2D,
+  atlas: HTMLImageElement,
+  stage: GrowthStageId,
+  environment: string,
+  size: number,
+) {
+  const atlasIndex = DLC_STAGE_ATLAS_INDEX[stage];
+  const row = Math.floor(atlasIndex / 3);
+  const column = atlasIndex % 3;
+  const cellWidth = atlas.naturalWidth / 3;
+  const cellHeight = atlas.naturalHeight / 2;
+  const placement = OUTFIT_ATLAS_PLACEMENT[stage];
+  const destinationSize = size * placement.scale;
+  const destinationX = (size - destinationSize) / 2;
+  const destinationY = size * (0.5 + placement.y) - destinationSize / 2;
+
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, size, size);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(
+    atlas,
+    column * cellWidth,
+    row * cellHeight,
+    cellWidth,
+    cellHeight,
+    destinationX,
+    destinationY,
+    destinationSize,
+    destinationSize,
+  );
+  context.save();
+  context.globalCompositeOperation = "source-atop";
+  context.fillStyle = ENVIRONMENT_TINT[environment] ?? ENVIRONMENT_TINT.neutral;
   context.fillRect(0, 0, size, size);
   context.restore();
 }
@@ -3111,9 +3197,12 @@ export function PurinMascot({
       animationFrame = window.requestAnimationFrame(loop);
     };
 
+    const dlcOutfitFile = DLC_OUTFIT_ATLAS[outfit];
     Promise.all([
       loadCanvasImage(
-        outfitAssetPath(STAGE_OUTFIT_ATLAS[effectiveStage]),
+        dlcOutfitFile
+          ? dlcOutfitAssetPath(dlcOutfitFile)
+          : outfitAssetPath(STAGE_OUTFIT_ATLAS[effectiveStage]),
       ).catch(() => null),
       loadCanvasImage(
         actionAssetPath("action-props.png"),

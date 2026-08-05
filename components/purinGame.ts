@@ -15,7 +15,7 @@ export type Panel =
   | "family"
   | "settings"
   | null;
-export type ClosetTab = "outfits" | "scenes";
+export type ClosetTab = "outfits" | "scenes" | "dlc";
 export type SceneId =
   | "cozy"
   | "cafe"
@@ -28,7 +28,35 @@ export type SceneId =
   | "arcade"
   | "snow"
   | "puddingland"
-  | "upside";
+  | "upside"
+  | "dlc-yorozuya"
+  | "dlc-spider-hideout"
+  | "dlc-namimori-home"
+  | "dlc-given-studio"
+  | "dlc-kagurabachi-shop";
+
+export type DlcPackId =
+  | "gintoki"
+  | "feitan"
+  | "tsuna"
+  | "mafuyu"
+  | "ritsuka"
+  | "haruki"
+  | "akihiko"
+  | "chihiro";
+
+export type DlcPack = {
+  id: DlcPackId;
+  series: string;
+  character: string;
+  outfitId: OutfitId;
+  sceneId: SceneId;
+  sceneLabel: string;
+  unlockCode: string;
+  symbol: string;
+  accent: string;
+  description: string;
+};
 
 export type GameLog = {
   id: string;
@@ -45,7 +73,7 @@ export type ChildPet = {
 };
 
 export type GameState = {
-  version: 3;
+  version: 4;
   petName: string;
   level: number;
   xp: number;
@@ -64,6 +92,7 @@ export type GameState = {
   ownedOutfits: OutfitId[];
   selectedScene: SceneId;
   ownedScenes: SceneId[];
+  redeemedDlcPacks: DlcPackId[];
   cooldowns: Record<CooldownKey, number>;
   stats: Record<StatKey, number>;
   lastEventAt: number;
@@ -82,6 +111,7 @@ export type ItemMeta<T extends string> = {
   level: number;
   price: number;
   symbol: string;
+  dlc?: boolean;
 };
 
 export type EventEffects = {
@@ -140,6 +170,117 @@ export const DAY_MS = 86_400_000;
 export const EVENT_COOLDOWN_MS = 20 * 60_000;
 export const FAMILY_WAIT_MS = DAY_MS;
 export const FAMILY_BIRTH_GAP_MS = 7 * DAY_MS;
+export const DLC_MASTER_CODE = "PURIN-ANIME-ALL";
+
+export function normalizeDlcCode(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+export const DLC_PACKS: DlcPack[] = [
+  {
+    id: "gintoki",
+    series: "銀魂",
+    character: "坂田銀時",
+    outfitId: "dlc-gintoki",
+    sceneId: "dlc-yorozuya",
+    sceneLabel: "萬事屋",
+    unlockCode: "YOROZUYA-SILVER",
+    symbol: "銀",
+    accent: "#76aeca",
+    description: "白底藍紋和服、紅黑內搭與洞爺湖風木刀套。",
+  },
+  {
+    id: "feitan",
+    series: "HUNTER×HUNTER",
+    character: "飛坦",
+    outfitId: "dlc-feitan",
+    sceneId: "dlc-spider-hideout",
+    sceneLabel: "旅團舊倉庫",
+    unlockCode: "SPIDER-13",
+    symbol: "蜘",
+    accent: "#7d7189",
+    description: "黑色高領長褸、暗紋面巾與收好嘅傘劍套。",
+  },
+  {
+    id: "tsuna",
+    series: "家庭教師HITMAN REBORN!",
+    character: "澤田綱吉",
+    outfitId: "dlc-tsuna",
+    sceneId: "dlc-namimori-home",
+    sceneLabel: "並盛町家中",
+    unlockCode: "VONGOLA-ZERO",
+    symbol: "炎",
+    accent: "#e98b48",
+    description: "並盛校服、柔和死氣之炎與全年齡專屬手套。",
+  },
+  {
+    id: "mafuyu",
+    series: "Given 被贈與的未來",
+    character: "佐藤真冬",
+    outfitId: "dlc-mafuyu",
+    sceneId: "dlc-given-studio",
+    sceneLabel: "Given 排練室",
+    unlockCode: "GIVEN-MAFUYU",
+    symbol: "真",
+    accent: "#bc6f78",
+    description: "酒紅層次便服與貼身紅色結他背帶。",
+  },
+  {
+    id: "ritsuka",
+    series: "Given 被贈與的未來",
+    character: "上之山立夏",
+    outfitId: "dlc-ritsuka",
+    sceneId: "dlc-given-studio",
+    sceneLabel: "Given 排練室",
+    unlockCode: "GIVEN-RITSUKA",
+    symbol: "立",
+    accent: "#51657e",
+    description: "深藍黑夾克、舞台層次穿搭與深色結他。",
+  },
+  {
+    id: "haruki",
+    series: "Given 被贈與的未來",
+    character: "中山春樹",
+    outfitId: "dlc-haruki",
+    sceneId: "dlc-given-studio",
+    sceneLabel: "Given 排練室",
+    unlockCode: "GIVEN-HARUKI",
+    symbol: "春",
+    accent: "#768a67",
+    description: "大地色針織外套、放鬆長褲與低音結他。",
+  },
+  {
+    id: "akihiko",
+    series: "Given 被贈與的未來",
+    character: "梶秋彥",
+    outfitId: "dlc-akihiko",
+    sceneId: "dlc-given-studio",
+    sceneLabel: "Given 排練室",
+    unlockCode: "GIVEN-AKIHIKO",
+    symbol: "秋",
+    accent: "#8d776c",
+    description: "俐落深色樂手裝、腕帶與全年齡鼓棍配件。",
+  },
+  {
+    id: "chihiro",
+    series: "神樂鉢",
+    character: "六平千鑛",
+    outfitId: "dlc-chihiro",
+    sceneId: "dlc-kagurabachi-shop",
+    sceneLabel: "雨夜刀具店",
+    unlockCode: "KURO-BLADE",
+    symbol: "鉢",
+    accent: "#5c6370",
+    description: "深炭長褸、紅色細節與安全收納嘅刀鞘。",
+  },
+];
+
+export const DLC_OUTFIT_IDS = new Set<OutfitId>(
+  DLC_PACKS.map((pack) => pack.outfitId),
+);
+export const DLC_SCENE_IDS = new Set<SceneId>(
+  DLC_PACKS.map((pack) => pack.sceneId),
+);
 
 export const GROWTH_STAGES: GrowthStageMeta[] = [
   {
@@ -513,6 +654,15 @@ export const OUTFITS: Array<ItemMeta<OutfitId>> = [
     price: 760,
     symbol: "⌾",
   },
+  ...DLC_PACKS.map((pack) => ({
+    id: pack.outfitId,
+    label: `${pack.character}造型`,
+    description: pack.description,
+    level: 1,
+    price: 0,
+    symbol: pack.symbol,
+    dlc: true,
+  })),
 ];
 
 export const SCENES: Array<ItemMeta<SceneId>> = [
@@ -611,6 +761,51 @@ export const SCENES: Array<ItemMeta<SceneId>> = [
     level: 27,
     price: 880,
     symbol: "↯",
+  },
+  {
+    id: "dlc-yorozuya",
+    label: "萬事屋",
+    description: "木地板、矮桌、梳化同熟悉嘅城市露台",
+    level: 1,
+    price: 0,
+    symbol: "銀",
+    dlc: true,
+  },
+  {
+    id: "dlc-spider-hideout",
+    label: "旅團舊倉庫",
+    description: "月光穿過廢棄倉庫，暗處藏住蜘蛛紋理",
+    level: 1,
+    price: 0,
+    symbol: "蜘",
+    dlc: true,
+  },
+  {
+    id: "dlc-namimori-home",
+    label: "並盛町家中",
+    description: "充滿生活感嘅日式家庭客飯廳",
+    level: 1,
+    price: 0,
+    symbol: "炎",
+    dlc: true,
+  },
+  {
+    id: "dlc-given-studio",
+    label: "Given 排練室",
+    description: "結他、低音結他與鼓組都準備好嘅排練室",
+    level: 1,
+    price: 0,
+    symbol: "音",
+    dlc: true,
+  },
+  {
+    id: "dlc-kagurabachi-shop",
+    label: "雨夜刀具店",
+    description: "木架、紙門與雨夜霓虹交織嘅安靜店舖",
+    level: 1,
+    price: 0,
+    symbol: "鉢",
+    dlc: true,
   },
 ];
 
