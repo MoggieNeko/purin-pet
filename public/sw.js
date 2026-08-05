@@ -1,4 +1,4 @@
-const CACHE_NAME = "purin-pet-v14";
+const CACHE_NAME = "purin-pet-v15-animation";
 const APP_SHELL = [
   "./",
   "./manifest.webmanifest",

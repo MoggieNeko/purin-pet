@@ -2140,6 +2140,192 @@ textarea:focus-visible {
   }
 }
 
+/* V15 — storyboard animation, facial acting and four-zone touch feedback. */
+.canvas-mascot.is-interactive {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.canvas-mascot.is-interactive:focus-visible {
+  outline: 3px solid rgba(255, 231, 142, 0.78);
+  outline-offset: 3px;
+  border-radius: 44%;
+}
+
+.canvas-mascot.is-petted .mascot-stage-shell,
+.canvas-mascot.is-petted .mascot-rig,
+.canvas-mascot.is-petted .mascot-canvas,
+.canvas-mascot.is-petted .mascot-fx-canvas {
+  filter: none !important;
+}
+
+.canvas-mascot.touch-head-pat .touch-ripple {
+  width: 38px;
+  height: 22px;
+  border-color: rgba(255, 248, 205, 0.92);
+  box-shadow:
+    0 0 0 2px rgba(255, 216, 130, 0.22),
+    0 7px 18px rgba(255, 202, 117, 0.3);
+  animation: v15-head-pat 760ms cubic-bezier(0.2, 0.76, 0.3, 1) both;
+}
+
+.canvas-mascot.touch-cheek-poke .touch-ripple {
+  width: 19px;
+  height: 19px;
+  border-width: 2px;
+  border-color: rgba(255, 240, 195, 0.95);
+  animation: v15-cheek-poke 520ms ease-out both;
+}
+
+.canvas-mascot.touch-belly-tickle .touch-ripple {
+  width: 34px;
+  height: 34px;
+  border-style: dashed;
+  border-color: rgba(255, 239, 169, 0.9);
+  animation: v15-belly-tickle 820ms ease-out both;
+}
+
+.canvas-mascot.touch-paw-tap .touch-ripple {
+  width: 22px;
+  height: 22px;
+  border-radius: 45% 55% 50% 50%;
+  border-color: rgba(255, 248, 205, 0.92);
+  animation: v15-paw-tap 620ms ease-out both;
+}
+
+.canvas-mascot.touch-head-pat .touch-sparkle {
+  animation-duration: 900ms;
+}
+
+.canvas-mascot.touch-cheek-poke .touch-sparkle {
+  color: #ffd58b;
+  animation-duration: 620ms;
+}
+
+.canvas-mascot.touch-belly-tickle .touch-sparkle {
+  color: #fff0a2;
+  animation: v15-tickle-spark 920ms ease-out both;
+}
+
+.canvas-mascot.touch-paw-tap .touch-sparkle {
+  color: #fff7c9;
+  animation: v15-paw-spark 720ms ease-out both;
+}
+
+.canvas-mascot .mascot-action-caption {
+  min-width: 112px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: linear-gradient(
+    135deg,
+    rgba(87, 54, 38, 0.82),
+    rgba(103, 64, 43, 0.68)
+  );
+  box-shadow:
+    0 8px 20px rgba(68, 42, 29, 0.16),
+    inset 0 1px rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(9px);
+}
+
+@keyframes v15-head-pat {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -55%) scale(0.45);
+  }
+  22% {
+    opacity: 0.96;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -15%) scale(1.65, 1.2);
+  }
+}
+
+@keyframes v15-cheek-poke {
+  0% {
+    opacity: 0.92;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+  55% {
+    opacity: 0.64;
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.45);
+  }
+}
+
+@keyframes v15-belly-tickle {
+  0% {
+    opacity: 0.92;
+    transform: translate(-50%, -50%) scale(0.36) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.75) rotate(72deg);
+  }
+}
+
+@keyframes v15-paw-tap {
+  0% {
+    opacity: 0.92;
+    transform: translate(-50%, -50%) scale(0.35) rotate(-12deg);
+  }
+  42% {
+    opacity: 0.78;
+    transform: translate(-50%, -65%) scale(1.05) rotate(7deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -120%) scale(1.35) rotate(12deg);
+  }
+}
+
+@keyframes v15-tickle-spark {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20%) scale(0.4) rotate(-20deg);
+  }
+  28% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(75%, -180%) scale(1.15) rotate(42deg);
+  }
+}
+
+@keyframes v15-paw-spark {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -35%) scale(0.45);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -160%) scale(1.08);
+  }
+}
+
+@media (max-width: 560px) {
+  .canvas-mascot .mascot-action-caption {
+    max-width: 72%;
+    padding: 6px 10px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-mascot.is-petted .touch-ripple,
+  .canvas-mascot.is-petted .touch-sparkle {
+    animation: none !important;
+  }
+}
+
 @media (max-height: 760px) and (max-width: 699px) {
   .app-shell {
     padding-top: 11px;
