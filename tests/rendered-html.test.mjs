@@ -129,5 +129,5 @@ test("uses independent stage artwork without the old slice renderer", async () =
   }
   assert.match(gameSource, /DLC_PACKS/);
   assert.match(gameSource, /PURIN-ANIME-ALL/);
-  assert.match(serviceWorker, /purin-pet-v15-animation/);
+  assert.match(serviceWorker, /purin-pet-v14/);
 });

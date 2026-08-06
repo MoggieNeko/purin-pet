@@ -12,7 +12,6 @@ import {
   PurinMascot,
   type GrowthStageId,
   type OutfitId,
-  type TouchReaction,
 } from "./PurinMascot";
 import { PurinScene, sceneImagePath } from "./PurinScene";
 import {
@@ -108,76 +107,6 @@ const ACTION_DURATION: Record<string, number> = {
   level: 4300,
   event: 4200,
   baby: 4800,
-};
-
-const TOUCH_REPLIES: Record<TouchReaction, string[]> = {
-  "head-pat": [
-    "摸摸頭好舒服…耳仔都放鬆晒 ♡",
-    "我知你喺度，安心晒～",
-  ],
-  "cheek-poke": [
-    "咦？塊面俾你篤咗一下！",
-    "痕痕哋…再輕力少少呀～",
-  ],
-  "belly-tickle": [
-    "哈哈哈！肚仔好怕痕呀！",
-    "停唔到笑喇～救命呀 ♡",
-  ],
-  "paw-tap": [
-    "碰掌！今日都一齊加油～",
-    "小手手接收到你喇！",
-  ],
-};
-
-const DLC_TOUCH_REPLIES: Partial<Record<OutfitId, Record<TouchReaction, string>>> = {
-  "dlc-gintoki": {
-    "head-pat": "頭髮亂晒喇…有甜嘢先原諒你。",
-    "cheek-poke": "喂，篤面要另外收費㗎。",
-    "belly-tickle": "等等！懶洋洋都會怕痕㗎！",
-    "paw-tap": "碰掌可以，工作就遲啲先啦。",
-  },
-  "dlc-feitan": {
-    "head-pat": "……只准一下。",
-    "cheek-poke": "反應夠快先好再試。",
-    "belly-tickle": "呢招太犯規。",
-    "paw-tap": "收到。行動。",
-  },
-  "dlc-tsuna": {
-    "head-pat": "一開始有啲緊張…但其實好安心。",
-    "cheek-poke": "咦！我會努力企穩㗎！",
-    "belly-tickle": "哈哈…我投降喇！",
-    "paw-tap": "好，一齊勇敢行落去！",
-  },
-  "dlc-mafuyu": {
-    "head-pat": "好安靜、好溫暖…想記住呢個感覺。",
-    "cheek-poke": "呢一下，好似一粒輕輕嘅音符。",
-    "belly-tickle": "忍唔住笑咗…",
-    "paw-tap": "嗯，一齊聽埋下一段。",
-  },
-  "dlc-ritsuka": {
-    "head-pat": "我仲專心練緊…不過，多謝。",
-    "cheek-poke": "喂，節拍亂咗啦！",
-    "belly-tickle": "哈哈！完全彈唔落去喇！",
-    "paw-tap": "好，下一拍一齊入！",
-  },
-  "dlc-haruki": {
-    "head-pat": "辛苦晒，慢慢嚟就得。",
-    "cheek-poke": "哈哈，今日幾有精神喎。",
-    "belly-tickle": "好啦好啦，我認輸。",
-    "paw-tap": "配合得唔錯，繼續啦。",
-  },
-  "dlc-akihiko": {
-    "head-pat": "節奏放鬆啲，感覺就會出嚟。",
-    "cheek-poke": "膽量唔錯喎。",
-    "belly-tickle": "呢個節奏我真係頂唔順。",
-    "paw-tap": "好，下一段要更有力。",
-  },
-  "dlc-chihiro": {
-    "head-pat": "心要定，手先會穩。",
-    "cheek-poke": "警覺唔可以放低。",
-    "belly-tickle": "……呢招不在預計之內。",
-    "paw-tap": "準備好，就向前。",
-  },
 };
 
 type DesktopPetTravel = {
@@ -2094,19 +2023,7 @@ export function PurinPet() {
                 }
                 moveDirection={petTravel.direction}
                 dragging={petDragging}
-                interactive={!desktopPetMode}
-                onTouchReaction={(reaction) => {
-                  const personaReply =
-                    DLC_TOUCH_REPLIES[game.selectedOutfit]?.[reaction];
-                  const replies = TOUCH_REPLIES[reaction];
-                  setSpeech(
-                    personaReply ??
-                      replies[(game.totalActions + game.bond) % replies.length],
-                  );
-                  playTone(
-                    reaction === "head-pat" ? "soft" : "tap",
-                  );
-                }}
+                interactive
               />
             </div>
 
